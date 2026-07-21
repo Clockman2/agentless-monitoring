@@ -12,6 +12,7 @@ import (
 
 	"github.com/Clockman2/agentless-monitoring/internal/config"
 	"github.com/Clockman2/agentless-monitoring/internal/server"
+	"github.com/Clockman2/agentless-monitoring/internal/storage"
 )
 
 var version = "dev"
@@ -33,6 +34,17 @@ func main() {
 		logger.Error("configuration is invalid", "error", err)
 		os.Exit(1)
 	}
+
+	db, err := storage.Open(context.Background(), cfg.DatabasePath)
+	if err != nil {
+		logger.Error("database initialization failed", "error", err)
+		os.Exit(1)
+	}
+	defer func() {
+		if err := db.Close(); err != nil {
+			logger.Error("database close failed", "error", err)
+		}
+	}()
 
 	app := server.New(cfg.ListenAddress, version, logger)
 

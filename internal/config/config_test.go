@@ -15,6 +15,9 @@ func TestLoadDefaults(t *testing.T) {
 	if cfg.ListenAddress != defaultListenAddress {
 		t.Errorf("ListenAddress = %q, want %q", cfg.ListenAddress, defaultListenAddress)
 	}
+	if cfg.DatabasePath != defaultDatabasePath {
+		t.Errorf("DatabasePath = %q, want %q", cfg.DatabasePath, defaultDatabasePath)
+	}
 	if cfg.ShutdownTimeout != defaultShutdownTimeout {
 		t.Errorf("ShutdownTimeout = %s, want %s", cfg.ShutdownTimeout, defaultShutdownTimeout)
 	}
@@ -23,6 +26,7 @@ func TestLoadDefaults(t *testing.T) {
 func TestLoadOverrides(t *testing.T) {
 	values := map[string]string{
 		listenAddressEnv:   "0.0.0.0:9090",
+		databasePathEnv:    "testdata/monitoring.db",
 		shutdownTimeoutEnv: "30s",
 	}
 	cfg, err := load(func(key string) (string, bool) {
@@ -35,6 +39,9 @@ func TestLoadOverrides(t *testing.T) {
 
 	if cfg.ListenAddress != "0.0.0.0:9090" {
 		t.Errorf("ListenAddress = %q, want 0.0.0.0:9090", cfg.ListenAddress)
+	}
+	if cfg.DatabasePath != "testdata/monitoring.db" {
+		t.Errorf("DatabasePath = %q, want testdata/monitoring.db", cfg.DatabasePath)
 	}
 	if cfg.ShutdownTimeout != 30*time.Second {
 		t.Errorf("ShutdownTimeout = %s, want 30s", cfg.ShutdownTimeout)
@@ -68,6 +75,16 @@ func TestLoadRejectsInvalidEnvironment(t *testing.T) {
 			wantErr: shutdownTimeoutEnv,
 		},
 		{
+			name:    "empty database path",
+			values:  map[string]string{databasePathEnv: " "},
+			wantErr: "database path must not be empty",
+		},
+		{
+			name:    "database path with null byte",
+			values:  map[string]string{databasePathEnv: "data/monitoring\x00.db"},
+			wantErr: "database path must not contain a null byte",
+		},
+		{
 			name:    "excessive duration",
 			values:  map[string]string{shutdownTimeoutEnv: "6m"},
 			wantErr: "must not exceed",
@@ -88,7 +105,11 @@ func TestLoadRejectsInvalidEnvironment(t *testing.T) {
 }
 
 func TestValidateAcceptsIPv6(t *testing.T) {
-	cfg := Config{ListenAddress: "[::1]:8080", ShutdownTimeout: time.Second}
+	cfg := Config{
+		ListenAddress:   "[::1]:8080",
+		DatabasePath:    "data/test.db",
+		ShutdownTimeout: time.Second,
+	}
 	if err := cfg.Validate(); err != nil {
 		t.Fatalf("Validate() error = %v", err)
 	}

@@ -25,6 +25,7 @@ Runtime settings can also be supplied through environment variables:
 | Variable | Default | Purpose |
 | --- | --- | --- |
 | `AGENTLESS_MONITORING_LISTEN_ADDRESS` | `127.0.0.1:8080` | HTTP bind address; use an explicit IP and port |
+| `AGENTLESS_MONITORING_DATABASE_PATH` | `data/agentless-monitoring.db` | SQLite database file |
 | `AGENTLESS_MONITORING_SHUTDOWN_TIMEOUT` | `10s` | Graceful shutdown deadline, up to five minutes |
 
 Command-line `-listen` takes precedence over the listen-address environment variable.

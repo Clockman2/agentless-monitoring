@@ -6,14 +6,17 @@ import (
 	"net"
 	"os"
 	"strconv"
+	"strings"
 	"time"
 )
 
 const (
 	listenAddressEnv   = "AGENTLESS_MONITORING_LISTEN_ADDRESS"
+	databasePathEnv    = "AGENTLESS_MONITORING_DATABASE_PATH"
 	shutdownTimeoutEnv = "AGENTLESS_MONITORING_SHUTDOWN_TIMEOUT"
 
 	defaultListenAddress   = "127.0.0.1:8080"
+	defaultDatabasePath    = "data/agentless-monitoring.db"
 	defaultShutdownTimeout = 10 * time.Second
 	maximumShutdownTimeout = 5 * time.Minute
 )
@@ -21,6 +24,7 @@ const (
 // Config contains the process-level settings needed to start the application.
 type Config struct {
 	ListenAddress   string
+	DatabasePath    string
 	ShutdownTimeout time.Duration
 }
 
@@ -34,6 +38,12 @@ func (c Config) Validate() error {
 	if err := validateListenAddress(c.ListenAddress); err != nil {
 		return fmt.Errorf("listen address: %w", err)
 	}
+	if strings.TrimSpace(c.DatabasePath) == "" {
+		return fmt.Errorf("database path must not be empty")
+	}
+	if strings.ContainsRune(c.DatabasePath, '\x00') {
+		return fmt.Errorf("database path must not contain a null byte")
+	}
 	if c.ShutdownTimeout <= 0 {
 		return fmt.Errorf("shutdown timeout must be positive")
 	}
@@ -46,11 +56,15 @@ func (c Config) Validate() error {
 func load(lookupEnv func(string) (string, bool)) (Config, error) {
 	cfg := Config{
 		ListenAddress:   defaultListenAddress,
+		DatabasePath:    defaultDatabasePath,
 		ShutdownTimeout: defaultShutdownTimeout,
 	}
 
 	if value, ok := lookupEnv(listenAddressEnv); ok {
 		cfg.ListenAddress = value
+	}
+	if value, ok := lookupEnv(databasePathEnv); ok {
+		cfg.DatabasePath = value
 	}
 	if value, ok := lookupEnv(shutdownTimeoutEnv); ok {
 		duration, err := time.ParseDuration(value)
