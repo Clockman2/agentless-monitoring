@@ -1,0 +1,54 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{{.Title}} · Agentless Monitoring</title>
+  <link rel="stylesheet" href="/assets/app.css">
+</head>
+<body>
+  <aside class="sidebar">
+    <div class="sidebar-brand"><span class="brand-mark small">AM</span><span>Agentless<br>Monitoring</span></div>
+    <nav aria-label="Primary navigation">
+      <a class="active" href="/dashboard">Dashboard</a>
+      <span>Machines</span>
+      <span>Groups</span>
+      <span>Discovery</span>
+      <span>Incidents</span>
+      <span>Checks</span>
+      <span>Settings</span>
+    </nav>
+    <div class="sidebar-footer">
+      <span class="status-dot healthy"></span> Engine starting<br>
+      <span class="version">Version {{.Version}}</span>
+    </div>
+  </aside>
+  <div class="app-shell">
+    <header class="topbar">
+      <div><p class="eyebrow">Operations</p><h1>Dashboard</h1></div>
+      <div class="user-menu">
+        <span>{{.Username}}</span>
+        <form method="post" action="/logout">
+          <input type="hidden" name="csrf_token" value="{{.CSRFToken}}">
+          <button class="button-secondary" type="submit">Sign out</button>
+        </form>
+      </div>
+    </header>
+    <main class="content">
+      <section class="summary-grid" aria-label="Monitoring summary">
+        <article><span>Total machines</span><strong>0</strong></article>
+        <article><span>Healthy</span><strong class="text-healthy">0</strong></article>
+        <article><span>Warning</span><strong class="text-warning">0</strong></article>
+        <article><span>Critical</span><strong class="text-critical">0</strong></article>
+      </section>
+      <section class="panel">
+        <div class="panel-header"><div><h2>Current incidents</h2><p>No monitoring checks are configured yet.</p></div></div>
+        <div class="empty-state">
+          <strong>Authentication is operational</strong>
+          <p>The next POC step adds machines and live availability checks.</p>
+        </div>
+      </section>
+    </main>
+  </div>
+</body>
+</html>

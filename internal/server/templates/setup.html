@@ -1,0 +1,32 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{{.Title}} · Agentless Monitoring</title>
+  <link rel="stylesheet" href="/assets/app.css">
+</head>
+<body class="auth-body">
+  <main class="auth-panel">
+    <div class="brand-mark" aria-hidden="true">AM</div>
+    <p class="eyebrow">Agentless Monitoring</p>
+    <h1>Create the administrator</h1>
+    <p class="muted">No default account exists. Create the first administrator to secure this installation.</p>
+    {{if .Error}}<div class="alert alert-error" role="alert">{{.Error}}</div>{{end}}
+    <form method="post" action="/setup" class="form-stack">
+      <input type="hidden" name="csrf_token" value="{{.CSRFToken}}">
+      <label>Username
+        <input name="username" type="text" required minlength="3" maxlength="64" autocomplete="username" autofocus>
+      </label>
+      <label>Password
+        <input name="password" type="password" required minlength="12" maxlength="1024" autocomplete="new-password">
+      </label>
+      <label>Confirm password
+        <input name="password_confirmation" type="password" required minlength="12" maxlength="1024" autocomplete="new-password">
+      </label>
+      <button type="submit">Create administrator</button>
+    </form>
+    <p class="version">Version {{.Version}}</p>
+  </main>
+</body>
+</html>

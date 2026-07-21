@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{{.Title}} · Agentless Monitoring</title>
+  <link rel="stylesheet" href="/assets/app.css">
+</head>
+<body class="auth-body">
+  <main class="auth-panel">
+    <div class="brand-mark" aria-hidden="true">AM</div>
+    <p class="eyebrow">Agentless Monitoring</p>
+    <h1>Sign in</h1>
+    <p class="muted">Authenticate to open the infrastructure console.</p>
+    {{if .Error}}<div class="alert alert-error" role="alert">{{.Error}}</div>{{end}}
+    <form method="post" action="/login" class="form-stack">
+      <input type="hidden" name="csrf_token" value="{{.CSRFToken}}">
+      <label>Username
+        <input name="username" type="text" required maxlength="64" autocomplete="username" autofocus>
+      </label>
+      <label>Password
+        <input name="password" type="password" required maxlength="1024" autocomplete="current-password">
+      </label>
+      <button type="submit">Sign in</button>
+    </form>
+    <p class="version">Version {{.Version}}</p>
+  </main>
+</body>
+</html>
