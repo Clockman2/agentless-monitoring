@@ -6,6 +6,8 @@ import (
 	"log/slog"
 	"net/http"
 	"time"
+
+	"github.com/Clockman2/agentless-monitoring/internal/auth"
 )
 
 const (
@@ -17,23 +19,38 @@ const (
 
 // Server hosts the monitoring platform's HTTP endpoints.
 type Server struct {
-	httpServer *http.Server
+	httpServer    *http.Server
+	authStore     *auth.Store
+	secureCookies bool
+	version       string
+}
+
+// Options contains the dependencies and settings required by the HTTP server.
+type Options struct {
+	Address       string
+	Version       string
+	Logger        *slog.Logger
+	AuthStore     *auth.Store
+	SecureCookies bool
 }
 
 // New creates a server with conservative timeouts and the application's routes.
-func New(address, version string, logger *slog.Logger) *Server {
+func New(options Options) *Server {
 	mux := http.NewServeMux()
-	mux.HandleFunc("GET /healthz", healthHandler(version))
+	mux.HandleFunc("GET /healthz", healthHandler(options.Version))
 
 	return &Server{
 		httpServer: &http.Server{
-			Addr:              address,
-			Handler:           requestLogger(logger, mux),
+			Addr:              options.Address,
+			Handler:           requestLogger(options.Logger, securityHeaders(mux)),
 			ReadHeaderTimeout: readHeaderTimeout,
 			ReadTimeout:       readTimeout,
 			WriteTimeout:      writeTimeout,
 			IdleTimeout:       idleTimeout,
 		},
+		authStore:     options.AuthStore,
+		secureCookies: options.SecureCookies,
+		version:       options.Version,
 	}
 }
 
@@ -70,5 +87,16 @@ func requestLogger(logger *slog.Logger, next http.Handler) http.Handler {
 			"path", r.URL.Path,
 			"duration", time.Since(started),
 		)
+	})
+}
+
+func securityHeaders(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Security-Policy", "default-src 'self'; base-uri 'none'; form-action 'self'; frame-ancestors 'none'")
+		w.Header().Set("Permissions-Policy", "camera=(), microphone=(), geolocation=()")
+		w.Header().Set("Referrer-Policy", "no-referrer")
+		w.Header().Set("X-Content-Type-Options", "nosniff")
+		w.Header().Set("X-Frame-Options", "DENY")
+		next.ServeHTTP(w, r)
 	})
 }

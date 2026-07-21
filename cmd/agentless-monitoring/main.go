@@ -10,6 +10,7 @@ import (
 	"os/signal"
 	"syscall"
 
+	"github.com/Clockman2/agentless-monitoring/internal/auth"
 	"github.com/Clockman2/agentless-monitoring/internal/config"
 	"github.com/Clockman2/agentless-monitoring/internal/server"
 	"github.com/Clockman2/agentless-monitoring/internal/storage"
@@ -46,7 +47,13 @@ func main() {
 		}
 	}()
 
-	app := server.New(cfg.ListenAddress, version, logger)
+	app := server.New(server.Options{
+		Address:       cfg.ListenAddress,
+		Version:       version,
+		Logger:        logger,
+		AuthStore:     auth.NewStore(db),
+		SecureCookies: cfg.SecureCookies,
+	})
 
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()

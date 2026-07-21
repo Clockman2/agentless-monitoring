@@ -12,7 +12,11 @@ import (
 func TestHealthEndpoint(t *testing.T) {
 	t.Parallel()
 
-	app := New("127.0.0.1:0", "test-version", slog.New(slog.NewTextHandler(io.Discard, nil)))
+	app := New(Options{
+		Address: "127.0.0.1:0",
+		Version: "test-version",
+		Logger:  slog.New(slog.NewTextHandler(io.Discard, nil)),
+	})
 	recorder := httptest.NewRecorder()
 	request := httptest.NewRequest(http.MethodGet, "/healthz", nil)
 
@@ -26,6 +30,9 @@ func TestHealthEndpoint(t *testing.T) {
 	}
 	if got := recorder.Header().Get("Cache-Control"); got != "no-store" {
 		t.Errorf("Cache-Control = %q, want no-store", got)
+	}
+	if got := recorder.Header().Get("X-Frame-Options"); got != "DENY" {
+		t.Errorf("X-Frame-Options = %q, want DENY", got)
 	}
 	if got := strings.TrimSpace(recorder.Body.String()); got != `{"status":"ok","version":"test-version"}` {
 		t.Errorf("body = %s", got)

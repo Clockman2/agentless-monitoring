@@ -27,6 +27,7 @@ func TestLoadOverrides(t *testing.T) {
 	values := map[string]string{
 		listenAddressEnv:   "0.0.0.0:9090",
 		databasePathEnv:    "testdata/monitoring.db",
+		secureCookiesEnv:   "true",
 		shutdownTimeoutEnv: "30s",
 	}
 	cfg, err := load(func(key string) (string, bool) {
@@ -42,6 +43,9 @@ func TestLoadOverrides(t *testing.T) {
 	}
 	if cfg.DatabasePath != "testdata/monitoring.db" {
 		t.Errorf("DatabasePath = %q, want testdata/monitoring.db", cfg.DatabasePath)
+	}
+	if !cfg.SecureCookies {
+		t.Error("SecureCookies = false, want true")
 	}
 	if cfg.ShutdownTimeout != 30*time.Second {
 		t.Errorf("ShutdownTimeout = %s, want 30s", cfg.ShutdownTimeout)
@@ -73,6 +77,11 @@ func TestLoadRejectsInvalidEnvironment(t *testing.T) {
 			name:    "invalid duration",
 			values:  map[string]string{shutdownTimeoutEnv: "later"},
 			wantErr: shutdownTimeoutEnv,
+		},
+		{
+			name:    "invalid secure cookie setting",
+			values:  map[string]string{secureCookiesEnv: "sometimes"},
+			wantErr: secureCookiesEnv,
 		},
 		{
 			name:    "empty database path",

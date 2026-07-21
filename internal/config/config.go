@@ -13,6 +13,7 @@ import (
 const (
 	listenAddressEnv   = "AGENTLESS_MONITORING_LISTEN_ADDRESS"
 	databasePathEnv    = "AGENTLESS_MONITORING_DATABASE_PATH"
+	secureCookiesEnv   = "AGENTLESS_MONITORING_SECURE_COOKIES"
 	shutdownTimeoutEnv = "AGENTLESS_MONITORING_SHUTDOWN_TIMEOUT"
 
 	defaultListenAddress   = "127.0.0.1:8080"
@@ -25,6 +26,7 @@ const (
 type Config struct {
 	ListenAddress   string
 	DatabasePath    string
+	SecureCookies   bool
 	ShutdownTimeout time.Duration
 }
 
@@ -65,6 +67,13 @@ func load(lookupEnv func(string) (string, bool)) (Config, error) {
 	}
 	if value, ok := lookupEnv(databasePathEnv); ok {
 		cfg.DatabasePath = value
+	}
+	if value, ok := lookupEnv(secureCookiesEnv); ok {
+		secureCookies, err := strconv.ParseBool(value)
+		if err != nil {
+			return Config{}, fmt.Errorf("%s must be true or false", secureCookiesEnv)
+		}
+		cfg.SecureCookies = secureCookies
 	}
 	if value, ok := lookupEnv(shutdownTimeoutEnv); ok {
 		duration, err := time.ParseDuration(value)
