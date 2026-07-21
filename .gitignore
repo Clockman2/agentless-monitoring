@@ -1,0 +1,5 @@
+/agentless-monitoring
+coverage.out
+data/
+.env
+.env.*
