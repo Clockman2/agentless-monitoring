@@ -11,7 +11,7 @@
     <div class="sidebar-brand"><span class="brand-mark small">AM</span><span>Agentless<br>Monitoring</span></div>
     <nav aria-label="Primary navigation">
       <a class="active" href="/dashboard">Dashboard</a>
-      <span>Machines</span>
+      <a href="/machines/new">Machines</a>
       <span>Groups</span>
       <span>Discovery</span>
       <span>Incidents</span>
@@ -36,17 +36,17 @@
     </header>
     <main class="content">
       <section class="summary-grid" aria-label="Monitoring summary">
-        <article><span>Total machines</span><strong>0</strong></article>
-        <article><span>Healthy</span><strong class="text-healthy">0</strong></article>
-        <article><span>Warning</span><strong class="text-warning">0</strong></article>
-        <article><span>Critical</span><strong class="text-critical">0</strong></article>
+        <article><span>Total machines</span><strong>{{.Summary.Total}}</strong></article>
+        <article><span>Healthy</span><strong class="text-healthy">{{.Summary.Healthy}}</strong></article>
+        <article><span>Unknown</span><strong class="text-warning">{{.Summary.Unknown}}</strong></article>
+        <article><span>Critical</span><strong class="text-critical">{{.Summary.Critical}}</strong></article>
       </section>
       <section class="panel">
-        <div class="panel-header"><div><h2>Current incidents</h2><p>No monitoring checks are configured yet.</p></div></div>
-        <div class="empty-state">
-          <strong>Authentication is operational</strong>
-          <p>The next POC step adds machines and live availability checks.</p>
-        </div>
+        <div class="panel-header"><div><h2>Monitored machines</h2><p>Current configured POC checks.</p></div><a class="button-link" href="/machines/new">Add machine</a></div>
+        {{if .Machines}}
+        <table><thead><tr><th>Status</th><th>Name</th><th>Target</th><th>Check</th><th>Last check</th></tr></thead>
+        <tbody>{{range .Machines}}<tr><td><span class="status-label {{.Status}}">{{.Status}}</span></td><td>{{.Name}}</td><td class="mono">{{.Target}}:{{.Port}}</td><td>{{.CheckType}}</td><td>{{if .LastCheckedAt}}{{.LastCheckedAt}}{{else}}Never{{end}}</td></tr>{{end}}</tbody></table>
+        {{else}}<div class="empty-state"><strong>No machines configured</strong><p>Add a machine to begin the POC monitoring flow.</p></div>{{end}}
       </section>
     </main>
   </div>

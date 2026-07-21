@@ -13,6 +13,7 @@ import (
 	"testing"
 
 	"github.com/Clockman2/agentless-monitoring/internal/auth"
+	"github.com/Clockman2/agentless-monitoring/internal/machines"
 	"github.com/Clockman2/agentless-monitoring/internal/storage"
 )
 
@@ -59,6 +60,21 @@ func TestAdministratorSetupAndLogoutFlow(t *testing.T) {
 	}
 	if !strings.Contains(response.Body.String(), "poc.admin") {
 		t.Fatal("dashboard does not contain the authenticated username")
+	}
+	machineForm := url.Values{
+		"csrf_token": {session.CSRFToken}, "name": {"POC Gateway"}, "target": {"192.0.2.20"},
+		"check_type": {"tcp"}, "port": {"443"}, "path": {"/"},
+	}
+	request = formRequest(http.MethodPost, "/machines", machineForm)
+	request.AddCookie(sessionCookie)
+	response = serve(app, request)
+	assertRedirect(t, response, "/dashboard")
+
+	request = httptest.NewRequest(http.MethodGet, "/dashboard", nil)
+	request.AddCookie(sessionCookie)
+	response = serve(app, request)
+	if !strings.Contains(response.Body.String(), "POC Gateway") {
+		t.Fatal("dashboard does not contain the created machine")
 	}
 
 	request = formRequest(http.MethodPost, "/logout", url.Values{"csrf_token": {"forged"}})
@@ -117,11 +133,13 @@ func newWebTestServer(t *testing.T, secureCookies bool) (*Server, *auth.Store) {
 	t.Cleanup(func() { _ = db.Close() })
 
 	authStore := auth.NewStore(db)
+	machineStore := machines.NewStore(db)
 	app := New(Options{
 		Address:       "127.0.0.1:0",
 		Version:       "test-version",
 		Logger:        slog.New(slog.NewTextHandler(io.Discard, nil)),
 		AuthStore:     authStore,
+		MachineStore:  machineStore,
 		SecureCookies: secureCookies,
 	})
 	return app, authStore

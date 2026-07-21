@@ -30,7 +30,10 @@ const (
 	CheckHTTPS CheckType = "https"
 )
 
-var ErrDuplicate = errors.New("a matching machine check already exists")
+var (
+	ErrDuplicate    = errors.New("a matching machine check already exists")
+	ErrInvalidInput = errors.New("invalid machine configuration")
+)
 
 type Machine struct {
 	ID             int64
@@ -211,33 +214,33 @@ func validateCreateInput(input CreateInput) (CreateInput, error) {
 	input.Description = strings.TrimSpace(input.Description)
 	input.Path = strings.TrimSpace(input.Path)
 	if len(input.Name) == 0 || len(input.Name) > 100 || strings.ContainsFunc(input.Name, unicode.IsControl) {
-		return CreateInput{}, fmt.Errorf("name must be 1-100 printable characters")
+		return CreateInput{}, fmt.Errorf("%w: name must be 1-100 printable characters", ErrInvalidInput)
 	}
 	address, err := netip.ParseAddr(input.Target)
 	if err != nil {
-		return CreateInput{}, fmt.Errorf("target must be a literal IPv4 or IPv6 address")
+		return CreateInput{}, fmt.Errorf("%w: target must be a literal IPv4 or IPv6 address", ErrInvalidInput)
 	}
 	input.Target = address.String()
 	if len(input.Description) > 500 || strings.ContainsFunc(input.Description, unicode.IsControl) {
-		return CreateInput{}, fmt.Errorf("description must be at most 500 printable characters")
+		return CreateInput{}, fmt.Errorf("%w: description must be at most 500 printable characters", ErrInvalidInput)
 	}
 	if input.CheckType != CheckTCP && input.CheckType != CheckHTTP && input.CheckType != CheckHTTPS {
-		return CreateInput{}, fmt.Errorf("unsupported check type")
+		return CreateInput{}, fmt.Errorf("%w: unsupported check type", ErrInvalidInput)
 	}
 	if input.Port < 1 || input.Port > 65535 {
-		return CreateInput{}, fmt.Errorf("port must be between 1 and 65535")
+		return CreateInput{}, fmt.Errorf("%w: port must be between 1 and 65535", ErrInvalidInput)
 	}
 	if input.Path == "" {
 		input.Path = "/"
 	}
 	if !strings.HasPrefix(input.Path, "/") || len(input.Path) > 256 || strings.ContainsAny(input.Path, "\r\n") {
-		return CreateInput{}, fmt.Errorf("HTTP path must begin with / and contain at most 256 characters")
+		return CreateInput{}, fmt.Errorf("%w: HTTP path must begin with / and contain at most 256 characters", ErrInvalidInput)
 	}
 	if input.Timeout == 0 {
 		input.Timeout = 5 * time.Second
 	}
 	if input.Timeout < 100*time.Millisecond || input.Timeout > 30*time.Second {
-		return CreateInput{}, fmt.Errorf("timeout must be between 100ms and 30s")
+		return CreateInput{}, fmt.Errorf("%w: timeout must be between 100ms and 30s", ErrInvalidInput)
 	}
 	return input, nil
 }

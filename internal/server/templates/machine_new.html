@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{{.Title}} · Agentless Monitoring</title>
+  <link rel="stylesheet" href="/assets/app.css">
+</head>
+<body class="auth-body">
+  <main class="auth-panel wide">
+    <p class="eyebrow">Monitoring configuration</p>
+    <h1>Add machine</h1>
+    <p class="muted">POC targets must be literal IPv4 or IPv6 addresses.</p>
+    {{if .Error}}<div class="alert alert-error" role="alert">{{.Error}}</div>{{end}}
+    <form method="post" action="/machines" class="form-stack">
+      <input type="hidden" name="csrf_token" value="{{.CSRFToken}}">
+      <label>Display name<input name="name" required maxlength="100" autofocus></label>
+      <label>IP address<input name="target" required placeholder="192.0.2.10"></label>
+      <label>Description<input name="description" maxlength="500"></label>
+      <div class="form-row">
+        <label>Check type
+          <select name="check_type"><option value="tcp">TCP</option><option value="http">HTTP</option><option value="https">HTTPS</option></select>
+        </label>
+        <label>Port<input name="port" type="number" required min="1" max="65535" value="443"></label>
+      </div>
+      <label>HTTP path<input name="path" value="/" maxlength="256"></label>
+      <div class="form-actions"><a href="/dashboard">Cancel</a><button type="submit">Add machine</button></div>
+    </form>
+  </main>
+</body>
+</html>

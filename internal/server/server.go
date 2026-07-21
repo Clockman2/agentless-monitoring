@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/Clockman2/agentless-monitoring/internal/auth"
+	"github.com/Clockman2/agentless-monitoring/internal/machines"
 )
 
 const (
@@ -25,6 +26,7 @@ type Server struct {
 	version       string
 	logger        *slog.Logger
 	loginLimiter  *loginLimiter
+	machineStore  *machines.Store
 }
 
 // Options contains the dependencies and settings required by the HTTP server.
@@ -33,6 +35,7 @@ type Options struct {
 	Version       string
 	Logger        *slog.Logger
 	AuthStore     *auth.Store
+	MachineStore  *machines.Store
 	SecureCookies bool
 }
 
@@ -44,6 +47,7 @@ func New(options Options) *Server {
 		version:       options.Version,
 		logger:        options.Logger,
 		loginLimiter:  newLoginLimiter(),
+		machineStore:  options.MachineStore,
 	}
 
 	mux := http.NewServeMux()
