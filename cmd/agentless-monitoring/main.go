@@ -68,6 +68,7 @@ func main() {
 		CheckRunner:    checkRunner,
 		DiscoveryStore: discoveryStore,
 		Discovery:      discovery.NewService(ctx, discoveryStore, logger),
+		Scheduler:      scheduler,
 		SecureCookies:  cfg.SecureCookies,
 	})
 	go scheduler.Run(ctx)

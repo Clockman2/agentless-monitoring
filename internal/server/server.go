@@ -32,6 +32,7 @@ type Server struct {
 	checkRunner    *monitoring.Runner
 	discoveryStore *discovery.Store
 	discovery      *discovery.Service
+	scheduler      *monitoring.Scheduler
 }
 
 // Options contains the dependencies and settings required by the HTTP server.
@@ -44,6 +45,7 @@ type Options struct {
 	CheckRunner    *monitoring.Runner
 	DiscoveryStore *discovery.Store
 	Discovery      *discovery.Service
+	Scheduler      *monitoring.Scheduler
 	SecureCookies  bool
 }
 
@@ -59,6 +61,7 @@ func New(options Options) *Server {
 		checkRunner:    options.CheckRunner,
 		discoveryStore: options.DiscoveryStore,
 		discovery:      options.Discovery,
+		scheduler:      options.Scheduler,
 	}
 
 	mux := http.NewServeMux()

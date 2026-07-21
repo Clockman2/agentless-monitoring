@@ -46,6 +46,7 @@ button:hover { background: #2f83d2; }
 .sidebar-footer { margin-top: auto; padding: 16px; border-top: 1px solid #25303c; color: #91a0af; font-size: 12px; line-height: 1.8; }
 .status-dot { display: inline-block; width: 7px; height: 7px; margin-right: 7px; border-radius: 50%; }
 .healthy { background: #3db879; }
+.status-dot.critical { background: #f06b70; }
 
 .app-shell { min-height: 100vh; margin-left: 218px; }
 .topbar { display: flex; min-height: 66px; align-items: center; justify-content: space-between; padding: 10px 24px; border-bottom: 1px solid #25303c; background: #151d26; }
@@ -84,6 +85,12 @@ th { color: #8491a0; font-size: 10px; letter-spacing: .08em; text-transform: upp
 .row-check { width: auto; }
 .import-bar { display: flex; align-items: end; justify-content: flex-end; gap: 12px; padding: 16px; }
 .import-bar label { width: min(100%, 320px); }
+.table-actions { display: flex; align-items: center; gap: 7px; }
+.button-link-control { display: inline-block; border: 1px solid #3a4654; border-radius: 3px; text-decoration: none; }
+.detail-grid { display: grid; grid-template-columns: repeat(4, minmax(130px, 1fr)); gap: 12px; padding: 16px; }
+.detail-grid div { border-left: 2px solid #354252; padding-left: 10px; }
+.detail-grid span { display: block; color: #8491a0; font-size: 10px; letter-spacing: .07em; text-transform: uppercase; }
+.detail-grid strong { display: block; margin-top: 5px; font-size: 13px; }
 
 @media (max-width: 760px) {
   .sidebar { position: static; width: 100%; min-height: auto; }
@@ -94,4 +101,5 @@ th { color: #8491a0; font-size: 10px; letter-spacing: .08em; text-transform: upp
   .user-menu { align-items: flex-end; flex-direction: column; gap: 6px; }
   .inline-form { grid-template-columns: 1fr; }
   .import-bar { align-items: stretch; flex-direction: column; }
+  .detail-grid { grid-template-columns: repeat(2, 1fr); }
 }

@@ -24,6 +24,11 @@
         <label>Port<input name="port" type="number" required min="1" max="65535" value="443"></label>
       </div>
       <label>HTTP path<input name="path" value="/" maxlength="256"></label>
+      <div class="form-row">
+        <label>Check interval (seconds)<input name="check_interval_seconds" type="number" required min="10" max="86400" value="60"></label>
+        <label>Failures before critical<input name="failure_threshold" type="number" required min="1" max="20" value="3"></label>
+      </div>
+      <label>Successes before recovery<input name="recovery_threshold" type="number" required min="1" max="20" value="1"></label>
       <div class="form-actions"><a href="/dashboard">Cancel</a><button type="submit">Add machine</button></div>
     </form>
   </main>

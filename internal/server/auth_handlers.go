@@ -10,6 +10,7 @@ import (
 	"github.com/Clockman2/agentless-monitoring/internal/auth"
 	"github.com/Clockman2/agentless-monitoring/internal/discovery"
 	"github.com/Clockman2/agentless-monitoring/internal/machines"
+	"github.com/Clockman2/agentless-monitoring/internal/monitoring"
 )
 
 func (s *Server) registerWebRoutes(mux *http.ServeMux) {
@@ -23,6 +24,7 @@ func (s *Server) registerWebRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("GET /machines/new", s.machineCreatePage)
 	mux.HandleFunc("POST /machines", s.machineCreateSubmit)
 	mux.HandleFunc("POST /checks/{id}/run", s.checkRunSubmit)
+	mux.HandleFunc("GET /checks/{id}/history", s.checkHistoryPage)
 	if s.discoveryStore != nil && s.discovery != nil {
 		mux.HandleFunc("GET /discovery", s.discoveryPage)
 		mux.HandleFunc("POST /discovery/scans", s.discoveryStartSubmit)
@@ -272,6 +274,10 @@ func (s *Server) dashboardPage(w http.ResponseWriter, r *http.Request) {
 		s.internalError(w, r, err)
 		return
 	}
+	var schedulerStats monitoring.SchedulerStats
+	if s.scheduler != nil {
+		schedulerStats = s.scheduler.Stats()
+	}
 	s.renderPage(w, http.StatusOK, "dashboard", pageData{
 		Title:     "Dashboard",
 		Version:   s.version,
@@ -279,6 +285,7 @@ func (s *Server) dashboardPage(w http.ResponseWriter, r *http.Request) {
 		CSRFToken: session.CSRFToken,
 		Summary:   summary,
 		Machines:  machineList,
+		Scheduler: schedulerStats,
 	})
 }
 
@@ -308,10 +315,27 @@ func (s *Server) machineCreateSubmit(w http.ResponseWriter, r *http.Request) {
 		s.renderMachineError(w, session, "Port must be a number.")
 		return
 	}
+	interval, err := optionalPositiveInt(r.FormValue("check_interval_seconds"), 60)
+	if err != nil {
+		s.renderMachineError(w, session, "Check interval must be a number of seconds.")
+		return
+	}
+	failureThreshold, err := optionalPositiveInt(r.FormValue("failure_threshold"), 3)
+	if err != nil {
+		s.renderMachineError(w, session, "Failure threshold must be a number.")
+		return
+	}
+	recoveryThreshold, err := optionalPositiveInt(r.FormValue("recovery_threshold"), 1)
+	if err != nil {
+		s.renderMachineError(w, session, "Recovery threshold must be a number.")
+		return
+	}
 	_, err = s.machineStore.Create(r.Context(), session.User.ID, machines.CreateInput{
 		Name: r.FormValue("name"), Target: r.FormValue("target"), Description: r.FormValue("description"),
 		CheckType: machines.CheckType(r.FormValue("check_type")), Port: port,
 		Path: r.FormValue("path"), Timeout: 5 * time.Second,
+		CheckInterval:    time.Duration(interval) * time.Second,
+		FailureThreshold: failureThreshold, RecoveryThreshold: recoveryThreshold,
 	})
 	if errors.Is(err, machines.ErrDuplicate) {
 		s.renderMachineError(w, session, "That target and check already exist.")
@@ -326,6 +350,49 @@ func (s *Server) machineCreateSubmit(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	http.Redirect(w, r, "/dashboard", http.StatusSeeOther)
+}
+
+func optionalPositiveInt(value string, fallback int) (int, error) {
+	if value == "" {
+		return fallback, nil
+	}
+	parsed, err := strconv.Atoi(value)
+	if err != nil || parsed < 1 {
+		return 0, errors.New("value must be a positive number")
+	}
+	return parsed, nil
+}
+
+func (s *Server) checkHistoryPage(w http.ResponseWriter, r *http.Request) {
+	_, session, ok := s.requestSession(r)
+	if !ok {
+		http.Redirect(w, r, "/login", http.StatusSeeOther)
+		return
+	}
+	checkID, err := strconv.ParseInt(r.PathValue("id"), 10, 64)
+	if err != nil || checkID < 1 {
+		http.Error(w, "invalid check", http.StatusBadRequest)
+		return
+	}
+	machine, err := s.machineStore.GetByCheckID(r.Context(), checkID)
+	if err != nil {
+		http.NotFound(w, r)
+		return
+	}
+	results, err := s.machineStore.ListResults(r.Context(), checkID, 100)
+	if err != nil {
+		s.internalError(w, r, err)
+		return
+	}
+	var schedulerStats monitoring.SchedulerStats
+	if s.scheduler != nil {
+		schedulerStats = s.scheduler.Stats()
+	}
+	s.renderPage(w, http.StatusOK, "check_history", pageData{
+		Title: "Check history", Version: s.version, Username: session.User.Username,
+		CSRFToken: session.CSRFToken, Machine: machine, CheckResults: results,
+		Scheduler: schedulerStats,
+	})
 }
 
 func (s *Server) renderMachineError(w http.ResponseWriter, session auth.Session, message string) {

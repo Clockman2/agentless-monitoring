@@ -19,7 +19,7 @@
       <span>Settings</span>
     </nav>
     <div class="sidebar-footer">
-      <span class="status-dot healthy"></span> Engine online<br>
+      <span class="status-dot {{if .Scheduler.Running}}healthy{{else}}critical{{end}}"></span> Engine {{if .Scheduler.Running}}online{{else}}stopped{{end}}<br>
       <span class="version">Version {{.Version}}</span>
     </div>
   </aside>
@@ -44,8 +44,8 @@
       <section class="panel">
         <div class="panel-header"><div><h2>Monitored machines</h2><p>Current configured POC checks.</p></div><a class="button-link" href="/machines/new">Add machine</a></div>
         {{if .Machines}}
-        <table><thead><tr><th>Status</th><th>Name</th><th>Target</th><th>Check</th><th>Last check</th><th></th></tr></thead>
-        <tbody>{{range .Machines}}<tr><td><span class="status-label {{.Status}}">{{.Status}}</span></td><td>{{.Name}}</td><td class="mono">{{.Target}}:{{.Port}}</td><td>{{.CheckType}}</td><td>{{if .LastCheckedAt}}{{.ResponseTimeMS}} ms{{else}}Never{{end}}</td><td><form method="post" action="/checks/{{.CheckID}}/run"><input type="hidden" name="csrf_token" value="{{$.CSRFToken}}"><button class="button-secondary" type="submit">Run check</button></form></td></tr>{{end}}</tbody></table>
+        <table><thead><tr><th>Status</th><th>Name</th><th>Target</th><th>Check</th><th>Schedule</th><th>Last check</th><th></th></tr></thead>
+        <tbody>{{range .Machines}}<tr><td><span class="status-label {{.Status}}">{{.Status}}</span></td><td>{{.Name}}</td><td class="mono">{{.Target}}:{{.Port}}</td><td>{{.CheckType}}</td><td>{{.CheckInterval}} · {{.ConsecutiveFailures}}/{{.FailureThreshold}} failures</td><td>{{if .LastCheckedAt}}{{.ResponseTimeMS}} ms{{else}}Never{{end}}</td><td><div class="table-actions"><a class="button-secondary button-link-control" href="/checks/{{.CheckID}}/history">History</a><form method="post" action="/checks/{{.CheckID}}/run"><input type="hidden" name="csrf_token" value="{{$.CSRFToken}}"><button class="button-secondary" type="submit">Run now</button></form></div></td></tr>{{end}}</tbody></table>
         {{else}}<div class="empty-state"><strong>No machines configured</strong><p>Add a machine to begin the POC monitoring flow.</p></div>{{end}}
       </section>
     </main>

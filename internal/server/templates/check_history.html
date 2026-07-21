@@ -1,0 +1,50 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{{.Title}} · Agentless Monitoring</title>
+  <link rel="stylesheet" href="/assets/app.css">
+</head>
+<body>
+  <aside class="sidebar">
+    <div class="sidebar-brand"><span class="brand-mark small">AM</span><span>Agentless<br>Monitoring</span></div>
+    <nav aria-label="Primary navigation">
+      <a href="/dashboard">Dashboard</a>
+      <a href="/machines/new">Machines</a>
+      <a href="/discovery#groups">Groups</a>
+      <a href="/discovery">Discovery</a>
+      <span>Incidents</span>
+      <a class="active" href="/checks/{{.Machine.CheckID}}/history">Checks</a>
+      <span>Settings</span>
+    </nav>
+    <div class="sidebar-footer">
+      <span class="status-dot {{if .Scheduler.Running}}healthy{{else}}critical{{end}}"></span> Engine {{if .Scheduler.Running}}online{{else}}stopped{{end}}<br>
+      <span class="version">Version {{.Version}}</span>
+    </div>
+  </aside>
+  <div class="app-shell">
+    <header class="topbar">
+      <div><p class="eyebrow">Checks</p><h1>{{.Machine.Name}}</h1></div>
+      <div class="user-menu"><a class="button-link" href="/dashboard">Dashboard</a><span>{{.Username}}</span></div>
+    </header>
+    <main class="content content-stack">
+      <section class="panel">
+        <div class="panel-header"><div><h2>{{.Machine.CheckType}} check</h2><p class="mono">{{.Machine.Target}}:{{.Machine.Port}}{{if ne .Machine.CheckType "tcp"}}{{.Machine.Path}}{{end}}</p></div><span class="status-label {{.Machine.Status}}">{{.Machine.Status}}</span></div>
+        <div class="detail-grid">
+          <div><span>Interval</span><strong>{{.Machine.CheckInterval}}</strong></div>
+          <div><span>Failure threshold</span><strong>{{.Machine.ConsecutiveFailures}} / {{.Machine.FailureThreshold}}</strong></div>
+          <div><span>Recovery threshold</span><strong>{{.Machine.ConsecutiveSuccesses}} / {{.Machine.RecoveryThreshold}}</strong></div>
+          <div><span>Last response</span><strong>{{if .Machine.ResponseTimeMS}}{{.Machine.ResponseTimeMS}} ms{{else}}Never checked{{end}}</strong></div>
+        </div>
+      </section>
+      <section class="panel">
+        <div class="panel-header"><div><h2>Recent results</h2><p>The newest 100 raw outcomes, before threshold aggregation.</p></div></div>
+        {{if .CheckResults}}<table><thead><tr><th>Outcome</th><th>Checked at</th><th>Response</th><th>Category</th><th>Summary</th><th>Worker</th></tr></thead>
+        <tbody>{{range .CheckResults}}<tr><td><span class="status-label {{.Status}}">{{.Status}}</span></td><td>{{.CheckedAt.Format "2006-01-02 15:04:05Z07:00"}}</td><td>{{.ResponseTimeMS}} ms</td><td>{{if .ErrorCategory}}{{.ErrorCategory}}{{else}}—{{end}}</td><td>{{.Summary}}</td><td class="mono">{{.Worker}}</td></tr>{{end}}</tbody></table>
+        {{else}}<div class="empty-state"><strong>No results recorded</strong><p>The scheduler will run this check when it becomes due.</p></div>{{end}}
+      </section>
+    </main>
+  </div>
+</body>
+</html>

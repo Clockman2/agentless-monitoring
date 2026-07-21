@@ -79,6 +79,23 @@ func TestAdministratorSetupAndLogoutFlow(t *testing.T) {
 	if !strings.Contains(response.Body.String(), "POC Gateway") {
 		t.Fatal("dashboard does not contain the created machine")
 	}
+	machinesList, err := app.machineStore.List(context.Background())
+	if err != nil || len(machinesList) != 1 {
+		t.Fatalf("created machines = %#v, error = %v", machinesList, err)
+	}
+	request = formRequest(http.MethodPost, "/checks/"+strconv.FormatInt(machinesList[0].CheckID, 10)+"/run", url.Values{
+		"csrf_token": {session.CSRFToken},
+	})
+	request.AddCookie(sessionCookie)
+	response = serve(app, request)
+	assertRedirect(t, response, "/dashboard")
+
+	request = httptest.NewRequest(http.MethodGet, "/checks/"+strconv.FormatInt(machinesList[0].CheckID, 10)+"/history", nil)
+	request.AddCookie(sessionCookie)
+	response = serve(app, request)
+	if response.Code != http.StatusOK || !strings.Contains(response.Body.String(), "outside allowed") || !strings.Contains(response.Body.String(), "manual") {
+		t.Fatalf("check history response = %d", response.Code)
+	}
 
 	request = formRequest(http.MethodPost, "/logout", url.Values{"csrf_token": {"forged"}})
 	request.AddCookie(sessionCookie)

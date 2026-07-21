@@ -13,6 +13,7 @@ import (
 
 	"github.com/Clockman2/agentless-monitoring/internal/discovery"
 	"github.com/Clockman2/agentless-monitoring/internal/machines"
+	"github.com/Clockman2/agentless-monitoring/internal/monitoring"
 )
 
 const (
@@ -26,11 +27,12 @@ const (
 var webFiles embed.FS
 
 var pageTemplates = map[string]*template.Template{
-	"setup":       template.Must(template.ParseFS(webFiles, "templates/setup.html")),
-	"login":       template.Must(template.ParseFS(webFiles, "templates/login.html")),
-	"dashboard":   template.Must(template.ParseFS(webFiles, "templates/dashboard.html")),
-	"machine_new": template.Must(template.ParseFS(webFiles, "templates/machine_new.html")),
-	"discovery":   template.Must(template.ParseFS(webFiles, "templates/discovery.html")),
+	"setup":         template.Must(template.ParseFS(webFiles, "templates/setup.html")),
+	"login":         template.Must(template.ParseFS(webFiles, "templates/login.html")),
+	"dashboard":     template.Must(template.ParseFS(webFiles, "templates/dashboard.html")),
+	"machine_new":   template.Must(template.ParseFS(webFiles, "templates/machine_new.html")),
+	"discovery":     template.Must(template.ParseFS(webFiles, "templates/discovery.html")),
+	"check_history": template.Must(template.ParseFS(webFiles, "templates/check_history.html")),
 }
 
 type pageData struct {
@@ -48,6 +50,9 @@ type pageData struct {
 	DiscoveryRunning  bool
 	Groups            []discovery.Group
 	SuggestedCIDRs    []string
+	Machine           machines.Machine
+	CheckResults      []machines.CheckResult
+	Scheduler         monitoring.SchedulerStats
 }
 
 func (s *Server) renderAuthPage(w http.ResponseWriter, r *http.Request, status int, name, message string) {
