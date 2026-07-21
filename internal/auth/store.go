@@ -30,7 +30,7 @@ type User struct {
 	Role     string
 }
 
-// Store persists users and authentication audit events.
+// Store persists users, authentication audit events, and sessions.
 type Store struct {
 	db             *sql.DB
 	now            func() time.Time
