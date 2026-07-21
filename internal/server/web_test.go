@@ -9,10 +9,12 @@ import (
 	"net/http/httptest"
 	"net/url"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"testing"
 
 	"github.com/Clockman2/agentless-monitoring/internal/auth"
+	"github.com/Clockman2/agentless-monitoring/internal/discovery"
 	"github.com/Clockman2/agentless-monitoring/internal/machines"
 	"github.com/Clockman2/agentless-monitoring/internal/monitoring"
 	"github.com/Clockman2/agentless-monitoring/internal/storage"
@@ -125,6 +127,93 @@ func TestLoginRejectsInvalidCSRF(t *testing.T) {
 	}
 }
 
+func TestUnknownRouteDoesNotRotateSetupCSRF(t *testing.T) {
+	app, _ := newWebTestServer(t, false)
+	response := serveRequest(app, http.MethodGet, "/setup", nil)
+	csrfCookie := findCookie(t, response.Result(), formCSRFCookie)
+
+	response = serveRequest(app, http.MethodGet, "/favicon.ico", nil)
+	if response.Code != http.StatusNotFound {
+		t.Fatalf("unknown route status = %d, want 404", response.Code)
+	}
+	for _, cookie := range response.Result().Cookies() {
+		if cookie.Name == formCSRFCookie {
+			t.Fatal("unknown route unexpectedly rotated the setup CSRF cookie")
+		}
+	}
+	if csrfCookie.Value == "" {
+		t.Fatal("setup CSRF cookie was empty")
+	}
+}
+
+func TestDiscoveryReviewAndGroupImportFlow(t *testing.T) {
+	app, authStore := newWebTestServer(t, false)
+	response := serveRequest(app, http.MethodGet, "/setup", nil)
+	setupCSRF := findCookie(t, response.Result(), formCSRFCookie)
+	request := formRequest(http.MethodPost, "/setup", url.Values{
+		"csrf_token":            {setupCSRF.Value},
+		"username":              {"discovery.admin"},
+		"password":              {"a secure discovery password"},
+		"password_confirmation": {"a secure discovery password"},
+	})
+	request.AddCookie(setupCSRF)
+	response = serve(app, request)
+	sessionCookie := findCookie(t, response.Result(), sessionCookieName)
+	session, err := authStore.SessionByToken(context.Background(), sessionCookie.Value)
+	if err != nil {
+		t.Fatalf("resolve session: %v", err)
+	}
+
+	request = formRequest(http.MethodPost, "/discovery/scans", url.Values{
+		"csrf_token": {session.CSRFToken}, "target_cidr": {"203.0.113.0/24"},
+	})
+	request.AddCookie(sessionCookie)
+	response = serve(app, request)
+	if response.Code != http.StatusBadRequest || !strings.Contains(response.Body.String(), "private IPv4 CIDR") {
+		t.Fatalf("public discovery response = %d %q", response.Code, response.Body.String())
+	}
+
+	job, err := app.discoveryStore.CreateJob(context.Background(), session.User.ID, "192.168.70.10/32", 1)
+	if err != nil {
+		t.Fatalf("create discovery job: %v", err)
+	}
+	if err := app.discoveryStore.MarkRunning(context.Background(), job.ID); err != nil {
+		t.Fatalf("mark discovery running: %v", err)
+	}
+	port := uint16(443)
+	if err := app.discoveryStore.RecordProbe(context.Background(), job.ID, "192.168.70.10", &port); err != nil {
+		t.Fatalf("record discovered device: %v", err)
+	}
+	if err := app.discoveryStore.Complete(context.Background(), job.ID); err != nil {
+		t.Fatalf("complete discovery: %v", err)
+	}
+	devices, err := app.discoveryStore.ListDevices(context.Background(), job.ID)
+	if err != nil || len(devices) != 1 {
+		t.Fatalf("discovered devices = %#v, error = %v", devices, err)
+	}
+
+	request = httptest.NewRequest(http.MethodGet, "/discovery?job="+strconv.FormatInt(job.ID, 10), nil)
+	request.AddCookie(sessionCookie)
+	response = serve(app, request)
+	if response.Code != http.StatusOK || !strings.Contains(response.Body.String(), "192.168.70.10") {
+		t.Fatalf("discovery page response = %d", response.Code)
+	}
+
+	request = formRequest(http.MethodPost, "/discovery/jobs/"+strconv.FormatInt(job.ID, 10)+"/import", url.Values{
+		"csrf_token": {session.CSRFToken}, "device_id": {strconv.FormatInt(devices[0].ID, 10)}, "group_name": {"Lab servers"},
+	})
+	request.AddCookie(sessionCookie)
+	response = serve(app, request)
+	assertRedirect(t, response, "/discovery?job="+strconv.FormatInt(job.ID, 10)+"&imported=1")
+
+	request = httptest.NewRequest(http.MethodGet, "/discovery?job="+strconv.FormatInt(job.ID, 10), nil)
+	request.AddCookie(sessionCookie)
+	response = serve(app, request)
+	if !strings.Contains(response.Body.String(), "Lab servers") || !strings.Contains(response.Body.String(), "imported") {
+		t.Fatalf("discovery page does not show imported group/device")
+	}
+}
+
 func newWebTestServer(t *testing.T, secureCookies bool) (*Server, *auth.Store) {
 	t.Helper()
 	db, err := storage.Open(context.Background(), filepath.Join(t.TempDir(), "web.db"))
@@ -135,14 +224,18 @@ func newWebTestServer(t *testing.T, secureCookies bool) (*Server, *auth.Store) {
 
 	authStore := auth.NewStore(db)
 	machineStore := machines.NewStore(db)
+	discoveryStore := discovery.NewStore(db)
+	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
 	app := New(Options{
-		Address:       "127.0.0.1:0",
-		Version:       "test-version",
-		Logger:        slog.New(slog.NewTextHandler(io.Discard, nil)),
-		AuthStore:     authStore,
-		MachineStore:  machineStore,
-		CheckRunner:   monitoring.NewRunner(),
-		SecureCookies: secureCookies,
+		Address:        "127.0.0.1:0",
+		Version:        "test-version",
+		Logger:         logger,
+		AuthStore:      authStore,
+		MachineStore:   machineStore,
+		CheckRunner:    monitoring.NewRunner(),
+		DiscoveryStore: discoveryStore,
+		Discovery:      discovery.NewService(context.Background(), discoveryStore, logger),
+		SecureCookies:  secureCookies,
 	})
 	return app, authStore
 }

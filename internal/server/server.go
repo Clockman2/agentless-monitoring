@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/Clockman2/agentless-monitoring/internal/auth"
+	"github.com/Clockman2/agentless-monitoring/internal/discovery"
 	"github.com/Clockman2/agentless-monitoring/internal/machines"
 	"github.com/Clockman2/agentless-monitoring/internal/monitoring"
 )
@@ -21,37 +22,43 @@ const (
 
 // Server hosts the monitoring platform's HTTP endpoints.
 type Server struct {
-	httpServer    *http.Server
-	authStore     *auth.Store
-	secureCookies bool
-	version       string
-	logger        *slog.Logger
-	loginLimiter  *loginLimiter
-	machineStore  *machines.Store
-	checkRunner   *monitoring.Runner
+	httpServer     *http.Server
+	authStore      *auth.Store
+	secureCookies  bool
+	version        string
+	logger         *slog.Logger
+	loginLimiter   *loginLimiter
+	machineStore   *machines.Store
+	checkRunner    *monitoring.Runner
+	discoveryStore *discovery.Store
+	discovery      *discovery.Service
 }
 
 // Options contains the dependencies and settings required by the HTTP server.
 type Options struct {
-	Address       string
-	Version       string
-	Logger        *slog.Logger
-	AuthStore     *auth.Store
-	MachineStore  *machines.Store
-	CheckRunner   *monitoring.Runner
-	SecureCookies bool
+	Address        string
+	Version        string
+	Logger         *slog.Logger
+	AuthStore      *auth.Store
+	MachineStore   *machines.Store
+	CheckRunner    *monitoring.Runner
+	DiscoveryStore *discovery.Store
+	Discovery      *discovery.Service
+	SecureCookies  bool
 }
 
 // New creates a server with conservative timeouts and the application's routes.
 func New(options Options) *Server {
 	server := &Server{
-		authStore:     options.AuthStore,
-		secureCookies: options.SecureCookies,
-		version:       options.Version,
-		logger:        options.Logger,
-		loginLimiter:  newLoginLimiter(),
-		machineStore:  options.MachineStore,
-		checkRunner:   options.CheckRunner,
+		authStore:      options.AuthStore,
+		secureCookies:  options.SecureCookies,
+		version:        options.Version,
+		logger:         options.Logger,
+		loginLimiter:   newLoginLimiter(),
+		machineStore:   options.MachineStore,
+		checkRunner:    options.CheckRunner,
+		discoveryStore: options.DiscoveryStore,
+		discovery:      options.Discovery,
 	}
 
 	mux := http.NewServeMux()

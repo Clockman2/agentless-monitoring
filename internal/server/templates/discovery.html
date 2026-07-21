@@ -1,0 +1,104 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  {{if .DiscoveryRunning}}<meta http-equiv="refresh" content="2">{{end}}
+  <title>{{.Title}} · Agentless Monitoring</title>
+  <link rel="stylesheet" href="/assets/app.css">
+</head>
+<body>
+  <aside class="sidebar">
+    <div class="sidebar-brand"><span class="brand-mark small">AM</span><span>Agentless<br>Monitoring</span></div>
+    <nav aria-label="Primary navigation">
+      <a href="/dashboard">Dashboard</a>
+      <a href="/machines/new">Machines</a>
+      <a href="/discovery#groups">Groups</a>
+      <a class="active" href="/discovery">Discovery</a>
+      <span>Incidents</span>
+      <span>Checks</span>
+      <span>Settings</span>
+    </nav>
+    <div class="sidebar-footer">
+      <span class="status-dot healthy"></span> Engine online<br>
+      <span class="version">Version {{.Version}}</span>
+    </div>
+  </aside>
+  <div class="app-shell">
+    <header class="topbar">
+      <div><p class="eyebrow">Inventory</p><h1>Local discovery</h1></div>
+      <div class="user-menu">
+        <span>{{.Username}}</span>
+        <form method="post" action="/logout">
+          <input type="hidden" name="csrf_token" value="{{.CSRFToken}}">
+          <button class="button-secondary" type="submit">Sign out</button>
+        </form>
+      </div>
+    </header>
+    <main class="content content-stack">
+      {{if .Error}}<div class="alert alert-error" role="alert">{{.Error}}</div>{{end}}
+      {{if .Message}}<div class="alert alert-success" role="status">{{.Message}}</div>{{end}}
+
+      <section class="panel">
+        <div class="panel-header"><div><h2>Start a private-network scan</h2><p>Scans are limited to one private IPv4 /24 (254 usable addresses) or smaller.</p></div></div>
+        <form method="post" action="/discovery/scans" class="inline-form">
+          <input type="hidden" name="csrf_token" value="{{.CSRFToken}}">
+          <label>Target CIDR
+            <input name="target_cidr" required placeholder="192.168.1.0/24" list="local-cidrs" autocomplete="off">
+            <datalist id="local-cidrs">{{range .SuggestedCIDRs}}<option value="{{.}}">{{end}}</datalist>
+          </label>
+          <button type="submit" {{if .DiscoveryRunning}}disabled{{end}}>Start discovery</button>
+        </form>
+        <p class="form-note">Detection checks common TCP ports without credentials. Hosts that drop every probe may not appear.</p>
+      </section>
+
+      <section class="panel">
+        <div class="panel-header"><div><h2>Recent scans</h2><p>Progress and results are stored across service restarts.</p></div></div>
+        {{if .DiscoveryJobs}}
+        <table>
+          <thead><tr><th>Network</th><th>Status</th><th>Progress</th><th>Responsive</th><th>Started</th></tr></thead>
+          <tbody>{{range .DiscoveryJobs}}<tr>
+            <td><a class="table-link mono" href="/discovery?job={{.ID}}">{{.TargetCIDR}}</a></td>
+            <td><span class="status-label {{.Status}}">{{.Status}}</span></td>
+            <td>{{.ProcessedAddresses}} / {{.TotalAddresses}}</td><td>{{.ResponsiveHosts}}</td><td>{{.CreatedAt}}</td>
+          </tr>{{end}}</tbody>
+        </table>
+        {{else}}<div class="empty-state"><strong>No discovery scans yet</strong><p>Enter a local CIDR above to identify responsive devices.</p></div>{{end}}
+      </section>
+
+      {{if .DiscoveryJob}}
+      <section class="panel">
+        <div class="panel-header"><div><h2>Results for <span class="mono">{{.DiscoveryJob.TargetCIDR}}</span></h2><p>{{.DiscoveryJob.ResponsiveHosts}} responsive of {{.DiscoveryJob.ProcessedAddresses}} checked.</p></div><span class="status-label {{.DiscoveryJob.Status}}">{{.DiscoveryJob.Status}}</span></div>
+        {{if .DiscoveryJob.Error}}<div class="alert alert-error">{{.DiscoveryJob.Error}}</div>{{end}}
+        {{if .DiscoveredDevices}}
+        <form method="post" action="/discovery/jobs/{{.DiscoveryJob.ID}}/import">
+          <input type="hidden" name="csrf_token" value="{{.CSRFToken}}">
+          <table>
+            <thead><tr><th>Select</th><th>IP address</th><th>Detected port</th><th>State</th></tr></thead>
+            <tbody>{{range .DiscoveredDevices}}<tr>
+              <td>{{if eq .Status "new"}}<input class="row-check" type="checkbox" name="device_id" value="{{.ID}}" aria-label="Select {{.Address}}">{{else}}—{{end}}</td>
+              <td class="mono">{{.Address}}</td><td>{{if .DetectedPort}}{{.DetectedPort}}{{else}}Reachable; no open common port{{end}}</td><td>{{.Status}}</td>
+            </tr>{{end}}</tbody>
+          </table>
+          <div class="import-bar">
+            <label>Group name
+              <input name="group_name" required maxlength="100" list="existing-groups" placeholder="Local network">
+              <datalist id="existing-groups">{{range .Groups}}<option value="{{.Name}}">{{end}}</datalist>
+            </label>
+            <button type="submit">Add selected to group</button>
+          </div>
+        </form>
+        {{else if .DiscoveryRunning}}<div class="empty-state"><strong>Scan in progress</strong><p>This page refreshes automatically while addresses are checked.</p></div>
+        {{else}}<div class="empty-state"><strong>No responsive devices found</strong><p>Some devices may ignore TCP probes even when they are online.</p></div>{{end}}
+      </section>
+      {{end}}
+
+      <section class="panel" id="groups">
+        <div class="panel-header"><div><h2>Groups</h2><p>Groups created while importing discovered devices.</p></div></div>
+        {{if .Groups}}<table><thead><tr><th>Name</th><th>Machines</th></tr></thead><tbody>{{range .Groups}}<tr><td>{{.Name}}</td><td>{{.MachineCount}}</td></tr>{{end}}</tbody></table>
+        {{else}}<div class="empty-state"><strong>No groups yet</strong><p>Select discovered devices and provide a group name to create one.</p></div>{{end}}
+      </section>
+    </main>
+  </div>
+</body>
+</html>

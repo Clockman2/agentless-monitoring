@@ -12,6 +12,7 @@ import (
 
 	"github.com/Clockman2/agentless-monitoring/internal/auth"
 	"github.com/Clockman2/agentless-monitoring/internal/config"
+	"github.com/Clockman2/agentless-monitoring/internal/discovery"
 	"github.com/Clockman2/agentless-monitoring/internal/machines"
 	"github.com/Clockman2/agentless-monitoring/internal/monitoring"
 	"github.com/Clockman2/agentless-monitoring/internal/server"
@@ -38,7 +39,10 @@ func main() {
 		os.Exit(1)
 	}
 
-	db, err := storage.Open(context.Background(), cfg.DatabasePath)
+	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	defer stop()
+
+	db, err := storage.Open(ctx, cfg.DatabasePath)
 	if err != nil {
 		logger.Error("database initialization failed", "error", err)
 		os.Exit(1)
@@ -49,18 +53,18 @@ func main() {
 		}
 	}()
 
+	discoveryStore := discovery.NewStore(db)
 	app := server.New(server.Options{
-		Address:       cfg.ListenAddress,
-		Version:       version,
-		Logger:        logger,
-		AuthStore:     auth.NewStore(db),
-		MachineStore:  machines.NewStore(db),
-		CheckRunner:   monitoring.NewRunner(),
-		SecureCookies: cfg.SecureCookies,
+		Address:        cfg.ListenAddress,
+		Version:        version,
+		Logger:         logger,
+		AuthStore:      auth.NewStore(db),
+		MachineStore:   machines.NewStore(db),
+		CheckRunner:    monitoring.NewRunner(),
+		DiscoveryStore: discoveryStore,
+		Discovery:      discovery.NewService(ctx, discoveryStore, logger),
+		SecureCookies:  cfg.SecureCookies,
 	})
-
-	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
-	defer stop()
 
 	errCh := make(chan error, 1)
 	go func() {

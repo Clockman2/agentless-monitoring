@@ -11,6 +11,7 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/Clockman2/agentless-monitoring/internal/discovery"
 	"github.com/Clockman2/agentless-monitoring/internal/machines"
 )
 
@@ -29,16 +30,24 @@ var pageTemplates = map[string]*template.Template{
 	"login":       template.Must(template.ParseFS(webFiles, "templates/login.html")),
 	"dashboard":   template.Must(template.ParseFS(webFiles, "templates/dashboard.html")),
 	"machine_new": template.Must(template.ParseFS(webFiles, "templates/machine_new.html")),
+	"discovery":   template.Must(template.ParseFS(webFiles, "templates/discovery.html")),
 }
 
 type pageData struct {
-	Title     string
-	Version   string
-	Username  string
-	CSRFToken string
-	Error     string
-	Summary   machines.Summary
-	Machines  []machines.Machine
+	Title             string
+	Version           string
+	Username          string
+	CSRFToken         string
+	Error             string
+	Summary           machines.Summary
+	Machines          []machines.Machine
+	Message           string
+	DiscoveryJobs     []discovery.Job
+	DiscoveryJob      *discovery.Job
+	DiscoveredDevices []discovery.Device
+	DiscoveryRunning  bool
+	Groups            []discovery.Group
+	SuggestedCIDRs    []string
 }
 
 func (s *Server) renderAuthPage(w http.ResponseWriter, r *http.Request, status int, name, message string) {
