@@ -2,7 +2,7 @@
 
 A lightweight network discovery and monitoring platform for small and medium-sized infrastructure environments.
 
-The project is being built incrementally. The current proof of concept provides authenticated machine monitoring, manual TCP/HTTP/HTTPS checks, bounded local IPv4 discovery, and reviewed import into groups.
+The project is being built incrementally. The current proof of concept provides authenticated machine monitoring, scheduled TCP/HTTP/HTTPS checks with thresholded history, bounded local IPv4 discovery, and reviewed import into groups.
 
 ## Run locally
 
@@ -28,6 +28,8 @@ Runtime settings can also be supplied through environment variables:
 | `AGENTLESS_MONITORING_DATABASE_PATH` | `data/agentless-monitoring.db` | SQLite database file |
 | `AGENTLESS_MONITORING_SECURE_COOKIES` | `false` | Require HTTPS when browsers send authentication cookies |
 | `AGENTLESS_MONITORING_SHUTDOWN_TIMEOUT` | `10s` | Graceful shutdown deadline, up to five minutes |
+| `AGENTLESS_MONITORING_WORKERS` | `4` | Concurrent scheduled-check workers, from 1 to 64 |
+| `AGENTLESS_MONITORING_POLL_INTERVAL` | `2s` | How often the scheduler looks for due checks, from 500ms to one minute |
 
 Command-line `-listen` takes precedence over the listen-address environment variable.
 

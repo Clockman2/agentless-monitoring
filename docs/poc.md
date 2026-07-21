@@ -1,13 +1,13 @@
 # First POC workflow
 
-The first proof of concept supports manual monitoring and reviewed local discovery:
+The first proof of concept supports scheduled monitoring and reviewed local discovery:
 
 1. Install or update the Ubuntu service.
 2. Create the first administrator account.
 3. Sign in to the operations console.
 4. Add a machine with one TCP, HTTP, or HTTPS check.
-5. Run the check manually.
-6. Review the persisted status and response time on the dashboard.
+5. Let the scheduler run the check or select **Run now**.
+6. Review threshold state, response time, and result history.
 7. Scan a private local IPv4 CIDR for responsive devices.
 8. Select discovered devices and import them into a named group.
 
@@ -36,10 +36,16 @@ Select **Machines** or **Add machine** from the dashboard, then enter:
 - TCP, HTTP, or HTTPS as the check type.
 - The destination port.
 - An HTTP path when using HTTP or HTTPS.
+- A check interval between 10 seconds and 24 hours.
+- The consecutive failure and recovery thresholds.
 
 Public IP targets and hostnames are intentionally rejected in this POC. This prevents the monitoring server from becoming an unrestricted server-side request proxy while approved-network configuration is still under development.
 
-After adding the machine, select **Run check**. The dashboard updates the machine to healthy or critical and records the response time or bounded error summary.
+After adding the machine, the scheduler runs the check when it becomes due. **Run now** remains available for immediate diagnostics.
+
+Every execution stores a raw history result with its timestamp, response time, error category, bounded summary, and worker name. Select **History** next to a dashboard check to view the latest 100 results.
+
+A raw failure does not immediately mark a machine critical. The check becomes critical only after its configured number of consecutive failures. A configured number of consecutive successes returns it to healthy. The defaults are three failures and one success.
 
 ## Discover local devices and add them to a group
 
@@ -66,9 +72,9 @@ The database migration and service restart are handled by the existing update wo
 
 ## Current POC boundaries
 
-- Checks run manually; the scheduler is the next monitoring-engine milestone.
 - There is one check per machine in the current form.
-- Incidents, email notifications, scheduled checks, editable checks, and maintenance mode are not implemented yet.
+- Incidents, email notifications, editable checks, and maintenance mode are not implemented yet.
+- Scheduling is process-local and uses a bounded worker pool; distributed workers are outside the POC.
 - Discovery is IPv4-only, uses a fixed TCP probe set, and is limited to private or link-local networks no larger than `/24`.
 - HTTPS validates certificates normally; self-signed or mismatched certificates fail the check.
 - Authentication cookies use the `Secure` flag only when `AGENTLESS_MONITORING_SECURE_COOKIES=true`. Enable it when serving the application through HTTPS.

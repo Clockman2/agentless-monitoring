@@ -41,3 +41,14 @@ sudo /opt/agentless-monitoring-src/scripts/update-ubuntu.sh
 The updater refreshes only the operating-system packages required by the application, fast-forwards the source checkout, verifies modules, runs tests, rebuilds the binary, installs updated service files, and restarts the service. It stops without changing the checkout when the source directory contains local modifications or is not on `main`.
 
 The existing environment file and SQLite database are preserved during updates.
+
+Existing installations use four monitoring workers and a two-second scheduler poll interval without requiring environment-file changes. To tune these values, add the following to `/etc/default/agentless-monitoring`, then restart the service:
+
+```ini
+AGENTLESS_MONITORING_WORKERS=4
+AGENTLESS_MONITORING_POLL_INTERVAL=2s
+```
+
+```sh
+sudo systemctl restart agentless-monitoring.service
+```
