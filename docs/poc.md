@@ -1,6 +1,6 @@
 # First POC workflow
 
-The first proof of concept supports a complete manual monitoring workflow:
+The first proof of concept supports manual monitoring and reviewed local discovery:
 
 1. Install or update the Ubuntu service.
 2. Create the first administrator account.
@@ -8,6 +8,8 @@ The first proof of concept supports a complete manual monitoring workflow:
 4. Add a machine with one TCP, HTTP, or HTTPS check.
 5. Run the check manually.
 6. Review the persisted status and response time on the dashboard.
+7. Scan a private local IPv4 CIDR for responsive devices.
+8. Select discovered devices and import them into a named group.
 
 ## Update an existing Ubuntu test installation
 
@@ -39,10 +41,34 @@ Public IP targets and hostnames are intentionally rejected in this POC. This pre
 
 After adding the machine, select **Run check**. The dashboard updates the machine to healthy or critical and records the response time or bounded error summary.
 
+## Discover local devices and add them to a group
+
+Open **Discovery** in the sidebar. Enter a private or IPv4 link-local CIDR between `/24` and `/32`, such as the local `/24` suggested by the form. Only one discovery job runs at a time, and a job checks at most 256 addresses.
+
+The job runs in the background. Its page refreshes while it checks TCP ports 22, 80, 443, 445, 3389, and 8006. A successful connection or an explicit connection refusal identifies a responsive host. This avoids raw-socket and root requirements, but a host that silently drops every probe will not appear.
+
+When the job completes:
+
+1. Review the responsive IP addresses.
+2. Select only the devices that should be monitored.
+3. Enter a new or existing group name.
+4. Select **Add selected to group**.
+
+Discovery does not automatically monitor every response. The explicit review step prevents accidental inventory growth. During import, port 80 creates an HTTP check, port 443 creates an HTTPS check, and other detected ports create TCP checks. A reachable device with no open common port receives a TCP port 22 check as a conservative placeholder; it may remain critical until a suitable manual check is added.
+
+To deploy this feature on the Ubuntu POC after pulling the new commits, run:
+
+```sh
+sudo /opt/agentless-monitoring-src/scripts/update-ubuntu.sh
+```
+
+The database migration and service restart are handled by the existing update workflow.
+
 ## Current POC boundaries
 
 - Checks run manually; the scheduler is the next monitoring-engine milestone.
 - There is one check per machine in the current form.
-- Discovery, incidents, email notifications, groups, and maintenance mode are not implemented yet.
+- Incidents, email notifications, scheduled checks, editable checks, and maintenance mode are not implemented yet.
+- Discovery is IPv4-only, uses a fixed TCP probe set, and is limited to private or link-local networks no larger than `/24`.
 - HTTPS validates certificates normally; self-signed or mismatched certificates fail the check.
 - Authentication cookies use the `Secure` flag only when `AGENTLESS_MONITORING_SECURE_COOKIES=true`. Enable it when serving the application through HTTPS.

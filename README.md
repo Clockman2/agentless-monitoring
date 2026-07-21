@@ -2,7 +2,7 @@
 
 A lightweight network discovery and monitoring platform for small and medium-sized infrastructure environments.
 
-The project is being built incrementally. The current foundation provides a small Go HTTP service with a health endpoint and graceful shutdown.
+The project is being built incrementally. The current proof of concept provides authenticated machine monitoring, manual TCP/HTTP/HTTPS checks, bounded local IPv4 discovery, and reviewed import into groups.
 
 ## Run locally
 
