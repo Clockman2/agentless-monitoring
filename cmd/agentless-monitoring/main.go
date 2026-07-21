@@ -54,17 +54,23 @@ func main() {
 	}()
 
 	discoveryStore := discovery.NewStore(db)
+	machineStore := machines.NewStore(db)
+	checkRunner := monitoring.NewRunner()
+	scheduler := monitoring.NewScheduler(machineStore, checkRunner, monitoring.SchedulerOptions{
+		Workers: cfg.MonitoringWorkers, PollInterval: cfg.SchedulerPollInterval, Logger: logger,
+	})
 	app := server.New(server.Options{
 		Address:        cfg.ListenAddress,
 		Version:        version,
 		Logger:         logger,
 		AuthStore:      auth.NewStore(db),
-		MachineStore:   machines.NewStore(db),
-		CheckRunner:    monitoring.NewRunner(),
+		MachineStore:   machineStore,
+		CheckRunner:    checkRunner,
 		DiscoveryStore: discoveryStore,
 		Discovery:      discovery.NewService(ctx, discoveryStore, logger),
 		SecureCookies:  cfg.SecureCookies,
 	})
+	go scheduler.Run(ctx)
 
 	errCh := make(chan error, 1)
 	go func() {

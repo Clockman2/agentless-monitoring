@@ -50,7 +50,20 @@ func TestRunBlocksPublicTarget(t *testing.T) {
 	result := NewRunner().Run(context.Background(), machines.Machine{
 		Target: "192.0.2.10", CheckType: machines.CheckTCP, Port: 443, Timeout: time.Second,
 	})
-	if result.Status != machines.StatusCritical || !strings.Contains(result.Summary, "outside allowed") {
+	if result.Status != machines.StatusCritical || result.ErrorCategory != "configuration" || !strings.Contains(result.Summary, "outside allowed") {
+		t.Fatalf("result = %#v", result)
+	}
+}
+
+func TestRunHTTPClassifiesUnexpectedStatus(t *testing.T) {
+	runner := NewRunner()
+	runner.client.Transport = roundTripFunc(func(*http.Request) (*http.Response, error) {
+		return &http.Response{StatusCode: 503, Body: io.NopCloser(strings.NewReader("")), Header: make(http.Header)}, nil
+	})
+	result := runner.Run(context.Background(), machines.Machine{
+		Target: "10.0.0.10", CheckType: machines.CheckHTTP, Port: 8080, Path: "/health", Timeout: time.Second,
+	})
+	if result.Status != machines.StatusCritical || result.ErrorCategory != "http_status" {
 		t.Fatalf("result = %#v", result)
 	}
 }

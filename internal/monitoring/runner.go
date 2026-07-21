@@ -14,9 +14,10 @@ import (
 )
 
 type Result struct {
-	Status       machines.Status
-	Summary      string
-	ResponseTime time.Duration
+	Status        machines.Status
+	Summary       string
+	ResponseTime  time.Duration
+	ErrorCategory string
 }
 
 type Runner struct {
@@ -38,7 +39,7 @@ func NewRunner() *Runner {
 func (r *Runner) Run(ctx context.Context, machine machines.Machine) Result {
 	address, err := netip.ParseAddr(machine.Target)
 	if err != nil || !allowedTarget(address) {
-		return Result{Status: machines.StatusCritical, Summary: "target is outside allowed local address ranges"}
+		return Result{Status: machines.StatusCritical, Summary: "target is outside allowed local address ranges", ErrorCategory: "configuration"}
 	}
 	ctx, cancel := context.WithTimeout(ctx, machine.Timeout)
 	defer cancel()
@@ -48,14 +49,14 @@ func (r *Runner) Run(ctx context.Context, machine machines.Machine) Result {
 	case machines.CheckTCP:
 		connection, err := r.dialContext(ctx, "tcp", net.JoinHostPort(machine.Target, fmt.Sprint(machine.Port)))
 		if err != nil {
-			return failedResult(started, err)
+			return failedResult(started, err, "network")
 		}
 		_ = connection.Close()
 		return Result{Status: machines.StatusHealthy, Summary: "TCP connection succeeded", ResponseTime: time.Since(started)}
 	case machines.CheckHTTP, machines.CheckHTTPS:
 		return r.runHTTP(ctx, machine, started)
 	default:
-		return Result{Status: machines.StatusCritical, Summary: "unsupported check type"}
+		return Result{Status: machines.StatusCritical, Summary: "unsupported check type", ErrorCategory: "configuration"}
 	}
 }
 
@@ -64,7 +65,7 @@ func (r *Runner) runHTTP(ctx context.Context, machine machines.Machine, started 
 	endpoint := fmt.Sprintf("%s://%s%s", scheme, net.JoinHostPort(machine.Target, fmt.Sprint(machine.Port)), machine.Path)
 	request, err := http.NewRequestWithContext(ctx, http.MethodGet, endpoint, nil)
 	if err != nil {
-		return failedResult(started, err)
+		return failedResult(started, err, "configuration")
 	}
 	client := *r.client
 	client.CheckRedirect = func(next *http.Request, previous []*http.Request) error {
@@ -75,11 +76,11 @@ func (r *Runner) runHTTP(ctx context.Context, machine machines.Machine, started 
 	}
 	response, err := client.Do(request)
 	if err != nil {
-		return failedResult(started, err)
+		return failedResult(started, err, "network")
 	}
 	_ = response.Body.Close()
 	if response.StatusCode < 200 || response.StatusCode >= 400 {
-		return Result{Status: machines.StatusCritical, Summary: fmt.Sprintf("HTTP status %d", response.StatusCode), ResponseTime: time.Since(started)}
+		return Result{Status: machines.StatusCritical, Summary: fmt.Sprintf("HTTP status %d", response.StatusCode), ResponseTime: time.Since(started), ErrorCategory: "http_status"}
 	}
 	return Result{Status: machines.StatusHealthy, Summary: fmt.Sprintf("HTTP status %d", response.StatusCode), ResponseTime: time.Since(started)}
 }
@@ -88,6 +89,6 @@ func allowedTarget(address netip.Addr) bool {
 	return address.IsLoopback() || address.IsPrivate() || address.IsLinkLocalUnicast()
 }
 
-func failedResult(started time.Time, err error) Result {
-	return Result{Status: machines.StatusCritical, Summary: err.Error(), ResponseTime: time.Since(started)}
+func failedResult(started time.Time, err error, category string) Result {
+	return Result{Status: machines.StatusCritical, Summary: err.Error(), ResponseTime: time.Since(started), ErrorCategory: category}
 }

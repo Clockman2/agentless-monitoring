@@ -21,14 +21,19 @@ func TestLoadDefaults(t *testing.T) {
 	if cfg.ShutdownTimeout != defaultShutdownTimeout {
 		t.Errorf("ShutdownTimeout = %s, want %s", cfg.ShutdownTimeout, defaultShutdownTimeout)
 	}
+	if cfg.MonitoringWorkers != defaultMonitoringWorkers || cfg.SchedulerPollInterval != defaultSchedulerPollInterval {
+		t.Errorf("monitoring defaults = %d/%s", cfg.MonitoringWorkers, cfg.SchedulerPollInterval)
+	}
 }
 
 func TestLoadOverrides(t *testing.T) {
 	values := map[string]string{
-		listenAddressEnv:   "0.0.0.0:9090",
-		databasePathEnv:    "testdata/monitoring.db",
-		secureCookiesEnv:   "true",
-		shutdownTimeoutEnv: "30s",
+		listenAddressEnv:         "0.0.0.0:9090",
+		databasePathEnv:          "testdata/monitoring.db",
+		secureCookiesEnv:         "true",
+		shutdownTimeoutEnv:       "30s",
+		monitoringWorkersEnv:     "8",
+		schedulerPollIntervalEnv: "5s",
 	}
 	cfg, err := load(func(key string) (string, bool) {
 		value, ok := values[key]
@@ -49,6 +54,9 @@ func TestLoadOverrides(t *testing.T) {
 	}
 	if cfg.ShutdownTimeout != 30*time.Second {
 		t.Errorf("ShutdownTimeout = %s, want 30s", cfg.ShutdownTimeout)
+	}
+	if cfg.MonitoringWorkers != 8 || cfg.SchedulerPollInterval != 5*time.Second {
+		t.Errorf("monitoring overrides = %d/%s", cfg.MonitoringWorkers, cfg.SchedulerPollInterval)
 	}
 }
 
@@ -98,6 +106,16 @@ func TestLoadRejectsInvalidEnvironment(t *testing.T) {
 			values:  map[string]string{shutdownTimeoutEnv: "6m"},
 			wantErr: "must not exceed",
 		},
+		{
+			name:    "invalid worker count",
+			values:  map[string]string{monitoringWorkersEnv: "0"},
+			wantErr: "monitoring workers",
+		},
+		{
+			name:    "invalid poll interval",
+			values:  map[string]string{schedulerPollIntervalEnv: "100ms"},
+			wantErr: "monitoring poll interval",
+		},
 	}
 
 	for _, tt := range tests {
@@ -115,9 +133,11 @@ func TestLoadRejectsInvalidEnvironment(t *testing.T) {
 
 func TestValidateAcceptsIPv6(t *testing.T) {
 	cfg := Config{
-		ListenAddress:   "[::1]:8080",
-		DatabasePath:    "data/test.db",
-		ShutdownTimeout: time.Second,
+		ListenAddress:         "[::1]:8080",
+		DatabasePath:          "data/test.db",
+		ShutdownTimeout:       time.Second,
+		MonitoringWorkers:     defaultMonitoringWorkers,
+		SchedulerPollInterval: defaultSchedulerPollInterval,
 	}
 	if err := cfg.Validate(); err != nil {
 		t.Fatalf("Validate() error = %v", err)
