@@ -48,6 +48,9 @@ func New(options Options) *Server {
 
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /healthz", healthHandler(options.Version))
+	if options.AuthStore != nil {
+		server.registerWebRoutes(mux)
+	}
 
 	server.httpServer = &http.Server{
 		Addr:              options.Address,

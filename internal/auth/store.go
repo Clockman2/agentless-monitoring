@@ -19,6 +19,7 @@ const (
 var (
 	ErrAlreadyInitialized = errors.New("administrator account already exists")
 	ErrInvalidCredentials = errors.New("invalid username or password")
+	ErrInvalidUsername    = errors.New("invalid username")
 
 	usernamePattern = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9._-]{2,63}$`)
 )
@@ -67,7 +68,7 @@ func (s *Store) CreateAdministrator(ctx context.Context, username, password stri
 
 	username = strings.TrimSpace(username)
 	if !usernamePattern.MatchString(username) {
-		return User{}, fmt.Errorf("username must be 3-64 characters using letters, numbers, dot, dash, or underscore")
+		return User{}, fmt.Errorf("%w: must be 3-64 characters using letters, numbers, dot, dash, or underscore", ErrInvalidUsername)
 	}
 	if err := validateNewPassword(password); err != nil {
 		return User{}, err

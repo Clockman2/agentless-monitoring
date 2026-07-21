@@ -4,6 +4,7 @@ import (
 	"crypto/rand"
 	"crypto/subtle"
 	"encoding/base64"
+	"errors"
 	"fmt"
 	"strconv"
 	"strings"
@@ -11,6 +12,8 @@ import (
 
 	"golang.org/x/crypto/argon2"
 )
+
+var ErrInvalidPassword = errors.New("invalid password")
 
 const (
 	minimumPasswordRunes = 12
@@ -38,13 +41,13 @@ var productionPasswordParams = passwordParams{
 
 func validateNewPassword(password string) error {
 	if !utf8.ValidString(password) {
-		return fmt.Errorf("password must be valid UTF-8")
+		return fmt.Errorf("%w: must be valid UTF-8", ErrInvalidPassword)
 	}
 	if utf8.RuneCountInString(password) < minimumPasswordRunes {
-		return fmt.Errorf("password must contain at least %d characters", minimumPasswordRunes)
+		return fmt.Errorf("%w: must contain at least %d characters", ErrInvalidPassword, minimumPasswordRunes)
 	}
 	if len(password) > maximumPasswordBytes {
-		return fmt.Errorf("password must not exceed %d bytes", maximumPasswordBytes)
+		return fmt.Errorf("%w: must not exceed %d bytes", ErrInvalidPassword, maximumPasswordBytes)
 	}
 	return nil
 }
