@@ -23,6 +23,8 @@ type Server struct {
 	authStore     *auth.Store
 	secureCookies bool
 	version       string
+	logger        *slog.Logger
+	loginLimiter  *loginLimiter
 }
 
 // Options contains the dependencies and settings required by the HTTP server.
@@ -36,22 +38,26 @@ type Options struct {
 
 // New creates a server with conservative timeouts and the application's routes.
 func New(options Options) *Server {
-	mux := http.NewServeMux()
-	mux.HandleFunc("GET /healthz", healthHandler(options.Version))
-
-	return &Server{
-		httpServer: &http.Server{
-			Addr:              options.Address,
-			Handler:           requestLogger(options.Logger, securityHeaders(mux)),
-			ReadHeaderTimeout: readHeaderTimeout,
-			ReadTimeout:       readTimeout,
-			WriteTimeout:      writeTimeout,
-			IdleTimeout:       idleTimeout,
-		},
+	server := &Server{
 		authStore:     options.AuthStore,
 		secureCookies: options.SecureCookies,
 		version:       options.Version,
+		logger:        options.Logger,
+		loginLimiter:  newLoginLimiter(),
 	}
+
+	mux := http.NewServeMux()
+	mux.HandleFunc("GET /healthz", healthHandler(options.Version))
+
+	server.httpServer = &http.Server{
+		Addr:              options.Address,
+		Handler:           requestLogger(options.Logger, securityHeaders(mux)),
+		ReadHeaderTimeout: readHeaderTimeout,
+		ReadTimeout:       readTimeout,
+		WriteTimeout:      writeTimeout,
+		IdleTimeout:       idleTimeout,
+	}
+	return server
 }
 
 // ListenAndServe starts accepting HTTP connections.
