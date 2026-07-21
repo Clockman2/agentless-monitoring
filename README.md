@@ -41,3 +41,5 @@ go vet ./...
 ## Ubuntu installation
 
 See [docs/ubuntu-install.md](docs/ubuntu-install.md) for the ordered fresh-install commands and reusable update script.
+
+See [docs/poc.md](docs/poc.md) for the first end-to-end monitoring workflow and current POC boundaries.
