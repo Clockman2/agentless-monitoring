@@ -208,6 +208,64 @@ func (s *Store) Summary(ctx context.Context) (Summary, error) {
 	return summary, nil
 }
 
+func (s *Store) GetByCheckID(ctx context.Context, checkID int64) (Machine, error) {
+	machines, err := s.List(ctx)
+	if err != nil {
+		return Machine{}, err
+	}
+	for _, machine := range machines {
+		if machine.CheckID == checkID {
+			return machine, nil
+		}
+	}
+	return Machine{}, sql.ErrNoRows
+}
+
+func (s *Store) RecordResult(ctx context.Context, actorUserID, checkID int64, status Status, elapsed time.Duration, summary string) error {
+	if status != StatusHealthy && status != StatusCritical {
+		return fmt.Errorf("invalid check result status")
+	}
+	if len(summary) > 500 {
+		summary = summary[:500]
+	}
+	now := time.Now().UTC().Format(time.RFC3339Nano)
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		return fmt.Errorf("begin check result: %w", err)
+	}
+	defer func() { _ = tx.Rollback() }()
+	result, err := tx.ExecContext(ctx, `
+		UPDATE checks SET status = ?, last_checked_at = ?, response_time_ms = ?, last_error = ?, updated_at = CURRENT_TIMESTAMP
+		WHERE id = ? AND enabled = 1
+	`, status, now, elapsed.Milliseconds(), nullableError(status, summary), checkID)
+	if err != nil {
+		return fmt.Errorf("record check result: %w", err)
+	}
+	if affected, _ := result.RowsAffected(); affected != 1 {
+		return sql.ErrNoRows
+	}
+	if _, err := tx.ExecContext(ctx, `
+		UPDATE machines SET status = ?, updated_at = CURRENT_TIMESTAMP
+		WHERE id = (SELECT machine_id FROM checks WHERE id = ?)
+	`, status, checkID); err != nil {
+		return fmt.Errorf("update machine status: %w", err)
+	}
+	if _, err := tx.ExecContext(ctx, `
+		INSERT INTO audit_events (actor_user_id, action, object_type, object_id, outcome)
+		VALUES (?, 'check.executed', 'check', ?, 'success')
+	`, actorUserID, strconv.FormatInt(checkID, 10)); err != nil {
+		return fmt.Errorf("record check audit event: %w", err)
+	}
+	return tx.Commit()
+}
+
+func nullableError(status Status, summary string) any {
+	if status == StatusHealthy {
+		return nil
+	}
+	return summary
+}
+
 func validateCreateInput(input CreateInput) (CreateInput, error) {
 	input.Name = strings.TrimSpace(input.Name)
 	input.Target = strings.TrimSpace(input.Target)

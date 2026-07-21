@@ -14,6 +14,7 @@ import (
 
 	"github.com/Clockman2/agentless-monitoring/internal/auth"
 	"github.com/Clockman2/agentless-monitoring/internal/machines"
+	"github.com/Clockman2/agentless-monitoring/internal/monitoring"
 	"github.com/Clockman2/agentless-monitoring/internal/storage"
 )
 
@@ -140,6 +141,7 @@ func newWebTestServer(t *testing.T, secureCookies bool) (*Server, *auth.Store) {
 		Logger:        slog.New(slog.NewTextHandler(io.Discard, nil)),
 		AuthStore:     authStore,
 		MachineStore:  machineStore,
+		CheckRunner:   monitoring.NewRunner(),
 		SecureCookies: secureCookies,
 	})
 	return app, authStore

@@ -13,6 +13,7 @@ import (
 	"github.com/Clockman2/agentless-monitoring/internal/auth"
 	"github.com/Clockman2/agentless-monitoring/internal/config"
 	"github.com/Clockman2/agentless-monitoring/internal/machines"
+	"github.com/Clockman2/agentless-monitoring/internal/monitoring"
 	"github.com/Clockman2/agentless-monitoring/internal/server"
 	"github.com/Clockman2/agentless-monitoring/internal/storage"
 )
@@ -54,6 +55,7 @@ func main() {
 		Logger:        logger,
 		AuthStore:     auth.NewStore(db),
 		MachineStore:  machines.NewStore(db),
+		CheckRunner:   monitoring.NewRunner(),
 		SecureCookies: cfg.SecureCookies,
 	})
 

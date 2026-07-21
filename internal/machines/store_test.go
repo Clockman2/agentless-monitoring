@@ -62,6 +62,24 @@ func TestCreateListAndSummarize(t *testing.T) {
 	}); err != ErrDuplicate {
 		t.Fatalf("duplicate error = %v, want ErrDuplicate", err)
 	}
+
+	if err := store.RecordResult(context.Background(), user.ID, created.CheckID, StatusHealthy, 23*time.Millisecond, "TCP connection succeeded"); err != nil {
+		t.Fatalf("RecordResult() error = %v", err)
+	}
+	listed, err = store.List(context.Background())
+	if err != nil {
+		t.Fatalf("List() after result error = %v", err)
+	}
+	if listed[0].Status != StatusHealthy || listed[0].ResponseTimeMS == nil || *listed[0].ResponseTimeMS != 23 {
+		t.Fatalf("machine after result = %#v", listed[0])
+	}
+	summary, err = store.Summary(context.Background())
+	if err != nil {
+		t.Fatalf("Summary() after result error = %v", err)
+	}
+	if summary.Healthy != 1 || summary.Unknown != 0 {
+		t.Fatalf("summary after result = %#v", summary)
+	}
 }
 
 func TestCreateRejectsHostnameAndInvalidPort(t *testing.T) {

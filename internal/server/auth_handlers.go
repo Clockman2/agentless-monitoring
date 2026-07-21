@@ -20,6 +20,7 @@ func (s *Server) registerWebRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("POST /logout", s.logoutSubmit)
 	mux.HandleFunc("GET /machines/new", s.machineCreatePage)
 	mux.HandleFunc("POST /machines", s.machineCreateSubmit)
+	mux.HandleFunc("POST /checks/{id}/run", s.checkRunSubmit)
 	mux.HandleFunc("GET /assets/app.css", s.stylesheet)
 }
 
@@ -214,6 +215,34 @@ func (s *Server) renderMachineError(w http.ResponseWriter, session auth.Session,
 		Title: "Add machine", Version: s.version, Username: session.User.Username,
 		CSRFToken: session.CSRFToken, Error: message,
 	})
+}
+
+func (s *Server) checkRunSubmit(w http.ResponseWriter, r *http.Request) {
+	_, session, ok := s.requestSession(r)
+	if !ok {
+		http.Redirect(w, r, "/login", http.StatusSeeOther)
+		return
+	}
+	if !s.parseForm(w, r) || !tokensEqual(r.FormValue("csrf_token"), session.CSRFToken) {
+		http.Error(w, "invalid form token", http.StatusForbidden)
+		return
+	}
+	checkID, err := strconv.ParseInt(r.PathValue("id"), 10, 64)
+	if err != nil || checkID < 1 {
+		http.Error(w, "invalid check", http.StatusBadRequest)
+		return
+	}
+	machine, err := s.machineStore.GetByCheckID(r.Context(), checkID)
+	if err != nil {
+		http.NotFound(w, r)
+		return
+	}
+	result := s.checkRunner.Run(r.Context(), machine)
+	if err := s.machineStore.RecordResult(r.Context(), session.User.ID, checkID, result.Status, result.ResponseTime, result.Summary); err != nil {
+		s.internalError(w, r, err)
+		return
+	}
+	http.Redirect(w, r, "/dashboard", http.StatusSeeOther)
 }
 
 func (s *Server) logoutSubmit(w http.ResponseWriter, r *http.Request) {
