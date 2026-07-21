@@ -33,6 +33,9 @@ func TestCreateListAndSummarize(t *testing.T) {
 	if created.Name != "Gateway" || created.Status != StatusUnknown || created.Port != 443 {
 		t.Fatalf("created machine = %#v", created)
 	}
+	if created.CheckInterval != time.Minute || created.FailureThreshold != 3 || created.RecoveryThreshold != 1 {
+		t.Fatalf("created check policy = %#v", created)
+	}
 
 	listed, err := store.List(context.Background())
 	if err != nil {
@@ -79,6 +82,67 @@ func TestCreateListAndSummarize(t *testing.T) {
 	}
 	if summary.Healthy != 1 || summary.Unknown != 0 {
 		t.Fatalf("summary after result = %#v", summary)
+	}
+	results, err := store.ListResults(context.Background(), created.CheckID, 10)
+	if err != nil {
+		t.Fatalf("ListResults() error = %v", err)
+	}
+	if len(results) != 1 || results[0].Worker != "manual" || results[0].Summary != "TCP connection succeeded" {
+		t.Fatalf("check results = %#v", results)
+	}
+	due, err := store.ListDue(context.Background(), time.Now().UTC(), 10)
+	if err != nil {
+		t.Fatalf("ListDue() error = %v", err)
+	}
+	if len(due) != 0 {
+		t.Fatalf("immediately due checks = %#v", due)
+	}
+	due, err = store.ListDue(context.Background(), time.Now().UTC().Add(2*time.Minute), 10)
+	if err != nil {
+		t.Fatalf("ListDue() future error = %v", err)
+	}
+	if len(due) != 1 || due[0].CheckID != created.CheckID {
+		t.Fatalf("future due checks = %#v", due)
+	}
+
+	for attempt := 1; attempt <= 2; attempt++ {
+		if err := store.RecordScheduledResult(context.Background(), created.CheckID, StatusCritical, 40*time.Millisecond, "network", "connection refused", "worker-1"); err != nil {
+			t.Fatalf("RecordScheduledResult(failure %d) error = %v", attempt, err)
+		}
+	}
+	listed, err = store.List(context.Background())
+	if err != nil {
+		t.Fatalf("List() below threshold error = %v", err)
+	}
+	if listed[0].Status != StatusHealthy || listed[0].ConsecutiveFailures != 2 {
+		t.Fatalf("machine below failure threshold = %#v", listed[0])
+	}
+	if err := store.RecordScheduledResult(context.Background(), created.CheckID, StatusCritical, 40*time.Millisecond, "network", "connection refused", "worker-1"); err != nil {
+		t.Fatalf("RecordScheduledResult(threshold failure) error = %v", err)
+	}
+	listed, err = store.List(context.Background())
+	if err != nil {
+		t.Fatalf("List() at threshold error = %v", err)
+	}
+	if listed[0].Status != StatusCritical || listed[0].ConsecutiveFailures != 3 {
+		t.Fatalf("machine at failure threshold = %#v", listed[0])
+	}
+	if err := store.RecordScheduledResult(context.Background(), created.CheckID, StatusHealthy, 12*time.Millisecond, "", "connection restored", "worker-2"); err != nil {
+		t.Fatalf("RecordScheduledResult(recovery) error = %v", err)
+	}
+	listed, err = store.List(context.Background())
+	if err != nil {
+		t.Fatalf("List() after recovery error = %v", err)
+	}
+	if listed[0].Status != StatusHealthy || listed[0].ConsecutiveFailures != 0 || listed[0].ConsecutiveSuccesses != 1 {
+		t.Fatalf("machine after recovery = %#v", listed[0])
+	}
+	results, err = store.ListResults(context.Background(), created.CheckID, 10)
+	if err != nil {
+		t.Fatalf("ListResults() after threshold sequence error = %v", err)
+	}
+	if len(results) != 5 || results[1].ErrorCategory != "network" || results[0].Worker != "worker-2" {
+		t.Fatalf("threshold history = %#v", results)
 	}
 }
 
