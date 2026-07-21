@@ -36,3 +36,7 @@ Command-line `-listen` takes precedence over the listen-address environment vari
 go test ./...
 go vet ./...
 ```
+
+## Ubuntu installation
+
+See [docs/ubuntu-install.md](docs/ubuntu-install.md) for the ordered fresh-install commands and reusable update script.
