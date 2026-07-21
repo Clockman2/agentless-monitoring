@@ -9,28 +9,39 @@ import (
 	"os"
 	"os/signal"
 	"syscall"
-	"time"
 
+	"github.com/Clockman2/agentless-monitoring/internal/config"
 	"github.com/Clockman2/agentless-monitoring/internal/server"
 )
-
-const shutdownTimeout = 10 * time.Second
 
 var version = "dev"
 
 func main() {
-	listenAddress := flag.String("listen", "127.0.0.1:8080", "HTTP listen address")
-	flag.Parse()
-
 	logger := slog.New(slog.NewJSONHandler(os.Stdout, nil))
-	app := server.New(*listenAddress, version, logger)
+
+	cfg, err := config.Load()
+	if err != nil {
+		logger.Error("configuration is invalid", "error", err)
+		os.Exit(1)
+	}
+
+	listenAddress := flag.String("listen", cfg.ListenAddress, "HTTP listen address")
+	flag.Parse()
+	cfg.ListenAddress = *listenAddress
+
+	if err := cfg.Validate(); err != nil {
+		logger.Error("configuration is invalid", "error", err)
+		os.Exit(1)
+	}
+
+	app := server.New(cfg.ListenAddress, version, logger)
 
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 
 	errCh := make(chan error, 1)
 	go func() {
-		logger.Info("HTTP server starting", "address", *listenAddress, "version", version)
+		logger.Info("HTTP server starting", "address", cfg.ListenAddress, "version", version)
 		errCh <- app.ListenAndServe()
 	}()
 
@@ -45,7 +56,7 @@ func main() {
 		return
 	}
 
-	shutdownCtx, cancel := context.WithTimeout(context.Background(), shutdownTimeout)
+	shutdownCtx, cancel := context.WithTimeout(context.Background(), cfg.ShutdownTimeout)
 	defer cancel()
 
 	if err := app.Shutdown(shutdownCtx); err != nil {

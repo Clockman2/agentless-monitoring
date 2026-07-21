@@ -20,6 +20,15 @@ curl http://127.0.0.1:8080/healthz
 
 Use `-listen` to select a different address. Expose the service only through a properly configured reverse proxy or another trusted network boundary.
 
+Runtime settings can also be supplied through environment variables:
+
+| Variable | Default | Purpose |
+| --- | --- | --- |
+| `AGENTLESS_MONITORING_LISTEN_ADDRESS` | `127.0.0.1:8080` | HTTP bind address; use an explicit IP and port |
+| `AGENTLESS_MONITORING_SHUTDOWN_TIMEOUT` | `10s` | Graceful shutdown deadline, up to five minutes |
+
+Command-line `-listen` takes precedence over the listen-address environment variable.
+
 ## Development checks
 
 ```sh
