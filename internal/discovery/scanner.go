@@ -20,12 +20,12 @@ const (
 	probeTimeout      = 450 * time.Millisecond
 )
 
-var ErrInvalidTarget = errors.New("discovery target must be a private IPv4 CIDR between /24 and /32")
+var ErrInvalidTarget = errors.New("discovery target must be a single IPv4 address, an IPv4 CIDR of /24 or smaller, or an inclusive IPv4 range containing at most 256 addresses")
 
 var commonTCPPorts = []uint16{22, 80, 443, 445, 3389, 8006}
 
 type Target struct {
-	Prefix    netip.Prefix
+	Canonical string
 	Addresses []netip.Addr
 }
 
@@ -48,12 +48,26 @@ func NewScanner() *Scanner {
 }
 
 func ParseTarget(value string) (Target, error) {
-	prefix, err := netip.ParsePrefix(strings.TrimSpace(value))
+	value = strings.TrimSpace(value)
+	if address, err := netip.ParseAddr(value); err == nil {
+		if !scannableIPv4(address) {
+			return Target{}, ErrInvalidTarget
+		}
+		return Target{Canonical: address.String(), Addresses: []netip.Addr{address}}, nil
+	}
+	if start, end, ok := splitAddressRange(value); ok {
+		return targetFromRange(start, end)
+	}
+	return targetFromPrefix(value)
+}
+
+func targetFromPrefix(value string) (Target, error) {
+	prefix, err := netip.ParsePrefix(value)
 	if err != nil || !prefix.Addr().Is4() || prefix.Bits() < minimumPrefixBits || prefix.Bits() > 32 {
 		return Target{}, ErrInvalidTarget
 	}
 	prefix = prefix.Masked()
-	if !prefix.Addr().IsPrivate() && !prefix.Addr().IsLinkLocalUnicast() {
+	if !scannableIPv4(prefix.Addr()) {
 		return Target{}, ErrInvalidTarget
 	}
 
@@ -70,7 +84,46 @@ func ParseTarget(value string) (Target, error) {
 	if len(addresses) == 0 {
 		return Target{}, ErrInvalidTarget
 	}
-	return Target{Prefix: prefix, Addresses: addresses}, nil
+	return Target{Canonical: prefix.String(), Addresses: addresses}, nil
+}
+
+func splitAddressRange(value string) (netip.Addr, netip.Addr, bool) {
+	for _, separator := range []string{"-", "–", "—"} {
+		parts := strings.Split(value, separator)
+		if len(parts) != 2 {
+			continue
+		}
+		start, startErr := netip.ParseAddr(strings.TrimSpace(parts[0]))
+		end, endErr := netip.ParseAddr(strings.TrimSpace(parts[1]))
+		if startErr == nil && endErr == nil {
+			return start, end, true
+		}
+	}
+	return netip.Addr{}, netip.Addr{}, false
+}
+
+func targetFromRange(start, end netip.Addr) (Target, error) {
+	if !scannableIPv4(start) || !scannableIPv4(end) || start.Compare(end) > 0 {
+		return Target{}, ErrInvalidTarget
+	}
+	addresses := make([]netip.Addr, 0, maximumAddresses)
+	for address := start; ; address = address.Next() {
+		addresses = append(addresses, address)
+		if len(addresses) > maximumAddresses {
+			return Target{}, ErrInvalidTarget
+		}
+		if address == end {
+			break
+		}
+	}
+	return Target{
+		Canonical: start.String() + "-" + end.String(),
+		Addresses: addresses,
+	}, nil
+}
+
+func scannableIPv4(address netip.Addr) bool {
+	return address.Is4() && !address.IsUnspecified() && !address.IsMulticast()
 }
 
 func LocalCIDRs() []string {

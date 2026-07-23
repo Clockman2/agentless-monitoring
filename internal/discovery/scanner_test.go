@@ -8,19 +8,51 @@ import (
 	"testing"
 )
 
-func TestParseTargetBoundsPrivateIPv4Networks(t *testing.T) {
+func TestParseTargetAcceptsPublicIPv4CIDR(t *testing.T) {
 	target, err := ParseTarget("192.168.20.99/30")
 	if err != nil {
 		t.Fatalf("ParseTarget() error = %v", err)
 	}
-	if got := target.Prefix.String(); got != "192.168.20.96/30" {
-		t.Fatalf("prefix = %q, want 192.168.20.96/30", got)
+	if got := target.Canonical; got != "192.168.20.96/30" {
+		t.Fatalf("canonical target = %q, want 192.168.20.96/30", got)
 	}
 	if len(target.Addresses) != 2 || target.Addresses[0].String() != "192.168.20.97" {
 		t.Fatalf("addresses = %#v", target.Addresses)
 	}
 
-	for _, value := range []string{"192.168.0.0/23", "203.0.113.0/24", "2001:db8::/120", "not-a-cidr"} {
+	publicTarget, err := ParseTarget("203.0.113.0/30")
+	if err != nil {
+		t.Fatalf("ParseTarget(public) error = %v", err)
+	}
+	if publicTarget.Canonical != "203.0.113.0/30" || len(publicTarget.Addresses) != 2 {
+		t.Fatalf("public target = %#v", publicTarget)
+	}
+}
+
+func TestParseTargetAcceptsSingleAddressAndInclusiveRange(t *testing.T) {
+	single, err := ParseTarget("198.51.100.25")
+	if err != nil || single.Canonical != "198.51.100.25" || len(single.Addresses) != 1 {
+		t.Fatalf("single target = %#v, error = %v", single, err)
+	}
+	ranged, err := ParseTarget("198.51.100.25–198.51.100.27")
+	if err != nil {
+		t.Fatalf("ParseTarget(range) error = %v", err)
+	}
+	if ranged.Canonical != "198.51.100.25-198.51.100.27" || len(ranged.Addresses) != 3 || ranged.Addresses[2].String() != "198.51.100.27" {
+		t.Fatalf("range target = %#v", ranged)
+	}
+}
+
+func TestParseTargetRejectsUnsafeOrOversizedTargets(t *testing.T) {
+	for _, value := range []string{
+		"192.168.0.0/23",
+		"198.51.100.0-198.51.101.0",
+		"198.51.100.27-198.51.100.25",
+		"2001:db8::/120",
+		"224.0.0.1",
+		"0.0.0.0",
+		"not-a-target",
+	} {
 		if _, err := ParseTarget(value); !errors.Is(err, ErrInvalidTarget) {
 			t.Errorf("ParseTarget(%q) error = %v, want ErrInvalidTarget", value, err)
 		}
