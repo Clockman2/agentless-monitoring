@@ -107,7 +107,7 @@ func TestScannerReportsResponsiveAddressesAndOpenPorts(t *testing.T) {
 }
 
 func TestCommonTCPPortsIncludeCPanelAndWHM(t *testing.T) {
-	for _, port := range []uint16{2082, 2083, 2086, 2087, 2095, 2096} {
+	for _, port := range []uint16{953, 2082, 2083, 2086, 2087, 2089, 2095, 2096} {
 		if !slices.Contains(commonTCPPorts, port) {
 			t.Errorf("commonTCPPorts does not include %d", port)
 		}

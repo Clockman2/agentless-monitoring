@@ -13,6 +13,8 @@ func guessMachineType(ports []uint16) string {
 	}
 
 	switch {
+	case hasAny(53) && hasAny(2086, 2087) && !hasAny(2082, 2083, 2095, 2096):
+		return "cPanel DNSOnly server"
 	case hasAny(2082, 2083, 2086, 2087, 2095, 2096):
 		return "cPanel/WHM server"
 	case hasAny(8006):

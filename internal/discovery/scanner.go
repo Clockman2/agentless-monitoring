@@ -23,8 +23,8 @@ const (
 var ErrInvalidTarget = errors.New("discovery target must be a single IPv4 address, an IPv4 CIDR of /24 or smaller, or an inclusive IPv4 range containing at most 256 addresses")
 
 var commonTCPPorts = []uint16{
-	21, 22, 25, 53, 80, 110, 143, 443, 445, 465, 587, 993, 995,
-	2082, 2083, 2086, 2087, 2095, 2096, 3306, 3389, 8006, 8080, 8443,
+	21, 22, 25, 53, 80, 110, 143, 443, 445, 465, 587, 953, 993, 995,
+	2082, 2083, 2086, 2087, 2089, 2095, 2096, 3306, 3389, 8006, 8080, 8443,
 }
 
 type Target struct {
