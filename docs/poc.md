@@ -14,7 +14,8 @@ The first proof of concept supports scheduled monitoring and reviewed local disc
 ## Update an existing Ubuntu test installation
 
 ```sh
-sudo /opt/agentless-monitoring-src/scripts/update-ubuntu.sh
+COMMIT_SHA=REVIEWED_FULL_40_CHARACTER_COMMIT_SHA
+sudo /usr/local/sbin/agentless-monitoring-update --commit "${COMMIT_SHA}"
 ```
 
 For a fresh installation, create the initial administrator from the Ubuntu terminal:
@@ -81,10 +82,15 @@ Discovery does not automatically monitor every response. The explicit review ste
 To deploy this feature on the Ubuntu POC after pulling the new commits, run:
 
 ```sh
-sudo /opt/agentless-monitoring-src/scripts/update-ubuntu.sh
+COMMIT_SHA=REVIEWED_FULL_40_CHARACTER_COMMIT_SHA
+sudo /usr/local/sbin/agentless-monitoring-update --commit "${COMMIT_SHA}"
 ```
 
-The database migration and service restart are handled by the existing update workflow.
+The pinned updater verifies that the commit is contained in the expected repository's `main`
+branch, builds and tests it as a dedicated unprivileged build account with no database access,
+installs only the resulting
+binary and the next updater, then restarts the service. The database migration is applied when
+the new binary starts.
 
 ## Current POC boundaries
 

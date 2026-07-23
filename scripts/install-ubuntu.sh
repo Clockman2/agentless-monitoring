@@ -5,10 +5,13 @@ set -Eeuo pipefail
 readonly APP_NAME="agentless-monitoring"
 readonly APP_USER="agentless-monitoring"
 readonly APP_GROUP="agentless-monitoring"
+readonly BUILD_USER="agentless-monitoring-build"
+readonly BUILD_GROUP="agentless-monitoring-build"
 readonly GO_VERSION="1.26.5"
 readonly SOURCE_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd -P)"
 readonly STATE_DIR="/var/lib/${APP_NAME}"
 readonly BINARY_PATH="/usr/local/bin/${APP_NAME}"
+readonly UPDATER_PATH="/usr/local/sbin/${APP_NAME}-update"
 readonly SERVICE_PATH="/etc/systemd/system/${APP_NAME}.service"
 readonly ENVIRONMENT_PATH="/etc/default/${APP_NAME}"
 
@@ -94,35 +97,59 @@ create_service_account() {
             "${APP_USER}"
     fi
     install -d -o "${APP_USER}" -g "${APP_GROUP}" -m 0750 "${STATE_DIR}"
+
+    if ! getent group "${BUILD_GROUP}" >/dev/null; then
+        groupadd --system "${BUILD_GROUP}"
+    fi
+    if ! id -u "${BUILD_USER}" >/dev/null 2>&1; then
+        useradd \
+            --system \
+            --gid "${BUILD_GROUP}" \
+            --home-dir /nonexistent \
+            --shell /usr/sbin/nologin \
+            "${BUILD_USER}"
+    fi
+}
+
+run_go_as_builder() {
+	runuser --user "${BUILD_USER}" -- env \
+		HOME="${TEMP_DIR}/home" \
+		PATH="/usr/local/go/bin:/usr/local/bin:/usr/bin:/bin" \
+		CGO_ENABLED=0 \
+		GOTOOLCHAIN=local \
+		GOCACHE="${TEMP_DIR}/go-build" \
+		GOMODCACHE="${TEMP_DIR}/go-mod" \
+		go -C "${SOURCE_DIR}" "$@"
 }
 
 build_application() {
-    local version
+	local version
 
-    export PATH="/usr/local/go/bin:/usr/local/bin:/usr/bin:/bin"
-    export CGO_ENABLED=0
-    export GOTOOLCHAIN=local
+	version="$(git -c safe.directory="${SOURCE_DIR}" -C "${SOURCE_DIR}" rev-parse --short=12 HEAD)"
+	chmod 0711 "${TEMP_DIR}"
+	install -d -o "${BUILD_USER}" -g "${BUILD_GROUP}" -m 0700 \
+		"${TEMP_DIR}/home" "${TEMP_DIR}/go-build" "${TEMP_DIR}/go-mod" "${TEMP_DIR}/output"
 
-    cd "${SOURCE_DIR}"
-    go mod download
-    go mod verify
-    go test ./...
-
-    version="$(git -c safe.directory="${SOURCE_DIR}" -C "${SOURCE_DIR}" rev-parse --short=12 HEAD)"
-    go build \
-        -trimpath \
-        -ldflags "-s -w -X main.version=${version}" \
-        -o "${TEMP_DIR}/${APP_NAME}" \
-        ./cmd/agentless-monitoring
+	run_go_as_builder mod download
+	run_go_as_builder mod verify
+	run_go_as_builder test -buildvcs=false ./...
+	run_go_as_builder build \
+		-buildvcs=false \
+		-trimpath \
+		-ldflags "-s -w -X main.version=${version}" \
+		-o "${TEMP_DIR}/output/${APP_NAME}" \
+		./cmd/agentless-monitoring
 }
 
 install_application() {
     install -o root -g root -m 0755 \
-        "${TEMP_DIR}/${APP_NAME}" "${BINARY_PATH}.new"
+        "${TEMP_DIR}/output/${APP_NAME}" "${BINARY_PATH}.new"
     mv -f -- "${BINARY_PATH}.new" "${BINARY_PATH}"
 
-    install -o root -g root -m 0644 \
-        "${SOURCE_DIR}/deploy/${APP_NAME}.service" "${SERVICE_PATH}"
+	install -o root -g root -m 0644 \
+		"${SOURCE_DIR}/deploy/${APP_NAME}.service" "${SERVICE_PATH}"
+	install -o root -g root -m 0755 \
+		"${SOURCE_DIR}/scripts/update-ubuntu.sh" "${UPDATER_PATH}"
 
     if [[ ! -e "${ENVIRONMENT_PATH}" ]]; then
         install -o root -g "${APP_GROUP}" -m 0640 \
