@@ -442,6 +442,9 @@ func validateCreateInput(input CreateInput) (CreateInput, error) {
 	if err != nil {
 		return CreateInput{}, fmt.Errorf("%w: target must be a literal IPv4 or IPv6 address", ErrInvalidInput)
 	}
+	if !address.IsGlobalUnicast() && !address.IsLoopback() && !address.IsLinkLocalUnicast() {
+		return CreateInput{}, fmt.Errorf("%w: target must be a unicast IPv4 or IPv6 address", ErrInvalidInput)
+	}
 	input.Target = address.String()
 	if len(input.Description) > 500 || strings.ContainsFunc(input.Description, unicode.IsControl) {
 		return CreateInput{}, fmt.Errorf("%w: description must be at most 500 printable characters", ErrInvalidInput)

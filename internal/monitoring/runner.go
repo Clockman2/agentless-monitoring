@@ -39,7 +39,7 @@ func NewRunner() *Runner {
 func (r *Runner) Run(ctx context.Context, machine machines.Machine) Result {
 	address, err := netip.ParseAddr(machine.Target)
 	if err != nil || !allowedTarget(address) {
-		return Result{Status: machines.StatusCritical, Summary: "target is outside allowed local address ranges", ErrorCategory: "configuration"}
+		return Result{Status: machines.StatusCritical, Summary: "target is not a valid unicast address", ErrorCategory: "configuration"}
 	}
 	ctx, cancel := context.WithTimeout(ctx, machine.Timeout)
 	defer cancel()
@@ -86,7 +86,7 @@ func (r *Runner) runHTTP(ctx context.Context, machine machines.Machine, started 
 }
 
 func allowedTarget(address netip.Addr) bool {
-	return address.IsLoopback() || address.IsPrivate() || address.IsLinkLocalUnicast()
+	return address.IsGlobalUnicast() || address.IsLoopback() || address.IsLinkLocalUnicast()
 }
 
 func failedResult(started time.Time, err error, category string) Result {

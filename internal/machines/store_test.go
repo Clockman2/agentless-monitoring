@@ -150,6 +150,7 @@ func TestCreateRejectsHostnameAndInvalidPort(t *testing.T) {
 	tests := []CreateInput{
 		{Name: "DNS target", Target: "example.invalid", CheckType: CheckTCP, Port: 443},
 		{Name: "Bad port", Target: "127.0.0.1", CheckType: CheckTCP, Port: 70000},
+		{Name: "Multicast target", Target: "224.0.0.1", CheckType: CheckTCP, Port: 443},
 	}
 	for _, input := range tests {
 		if _, err := validateCreateInput(input); err == nil {

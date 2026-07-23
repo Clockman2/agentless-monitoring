@@ -46,15 +46,32 @@ func TestRunHTTP(t *testing.T) {
 	}
 }
 
-func TestRunBlocksPublicTarget(t *testing.T) {
-	result := NewRunner().Run(context.Background(), machines.Machine{
-		Target: "192.0.2.10", CheckType: machines.CheckTCP, Port: 443, Timeout: time.Second,
+func TestRunAllowsPublicUnicastTarget(t *testing.T) {
+	server, client := net.Pipe()
+	t.Cleanup(func() { _ = client.Close() })
+	runner := NewRunner()
+	runner.dialContext = func(_ context.Context, network, address string) (net.Conn, error) {
+		if network != "tcp" || address != "203.0.113.10:443" {
+			t.Fatalf("dial target = %s %s", network, address)
+		}
+		return server, nil
+	}
+	result := runner.Run(context.Background(), machines.Machine{
+		Target: "203.0.113.10", CheckType: machines.CheckTCP, Port: 443, Timeout: time.Second,
 	})
-	if result.Status != machines.StatusCritical || result.ErrorCategory != "configuration" || !strings.Contains(result.Summary, "outside allowed") {
+	if result.Status != machines.StatusHealthy {
 		t.Fatalf("result = %#v", result)
 	}
 }
 
+func TestRunBlocksNonUnicastTarget(t *testing.T) {
+	result := NewRunner().Run(context.Background(), machines.Machine{
+		Target: "224.0.0.1", CheckType: machines.CheckTCP, Port: 443, Timeout: time.Second,
+	})
+	if result.Status != machines.StatusCritical || result.ErrorCategory != "configuration" || !strings.Contains(result.Summary, "not a valid unicast") {
+		t.Fatalf("result = %#v", result)
+	}
+}
 func TestRunHTTPClassifiesUnexpectedStatus(t *testing.T) {
 	runner := NewRunner()
 	runner.client.Transport = roundTripFunc(func(*http.Request) (*http.Response, error) {
