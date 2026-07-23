@@ -195,7 +195,7 @@ func (s *Server) setupSubmit(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "invalid form token", http.StatusForbidden)
 		return
 	}
-	clearCookie(w, formCSRFCookie, s.secureCookies)
+	clearCookie(w, s.formCSRFCookieName(), s.secureCookies)
 
 	if r.FormValue("password") != r.FormValue("password_confirmation") {
 		s.renderAuthPage(w, r, http.StatusBadRequest, "setup", "Passwords do not match.")
@@ -250,7 +250,7 @@ func (s *Server) loginSubmit(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "invalid form token", http.StatusForbidden)
 		return
 	}
-	clearCookie(w, formCSRFCookie, s.secureCookies)
+	clearCookie(w, s.formCSRFCookieName(), s.secureCookies)
 
 	client := clientAddress(r)
 	if !s.loginLimiter.allow(client) {
@@ -280,7 +280,7 @@ func (s *Server) loginSubmit(w http.ResponseWriter, r *http.Request) {
 func (s *Server) dashboardPage(w http.ResponseWriter, r *http.Request) {
 	_, session, ok := s.requestSession(r)
 	if !ok {
-		clearCookie(w, sessionCookieName, s.secureCookies)
+		clearCookie(w, s.sessionCookieName(), s.secureCookies)
 		http.Redirect(w, r, "/login", http.StatusSeeOther)
 		return
 	}
@@ -453,7 +453,7 @@ func (s *Server) checkRunSubmit(w http.ResponseWriter, r *http.Request) {
 func (s *Server) logoutSubmit(w http.ResponseWriter, r *http.Request) {
 	token, session, ok := s.requestSession(r)
 	if !ok {
-		clearCookie(w, sessionCookieName, s.secureCookies)
+		clearCookie(w, s.sessionCookieName(), s.secureCookies)
 		http.Redirect(w, r, "/login", http.StatusSeeOther)
 		return
 	}
@@ -465,12 +465,12 @@ func (s *Server) logoutSubmit(w http.ResponseWriter, r *http.Request) {
 		s.internalError(w, r, err)
 		return
 	}
-	clearCookie(w, sessionCookieName, s.secureCookies)
+	clearCookie(w, s.sessionCookieName(), s.secureCookies)
 	http.Redirect(w, r, "/login", http.StatusSeeOther)
 }
 
 func (s *Server) requestSession(r *http.Request) (string, auth.Session, bool) {
-	cookie, err := r.Cookie(sessionCookieName)
+	cookie, err := r.Cookie(s.sessionCookieName())
 	if err != nil {
 		return "", auth.Session{}, false
 	}

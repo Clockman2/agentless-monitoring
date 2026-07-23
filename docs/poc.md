@@ -93,4 +93,4 @@ The database migration and service restart are handled by the existing update wo
 - Scheduling is process-local and uses a bounded worker pool; distributed workers are outside the POC.
 - Discovery is IPv4-only, uses a fixed TCP probe set, and is limited to 256 addresses per job.
 - HTTPS validates certificates normally; self-signed or mismatched certificates fail the check.
-- Authentication cookies use the `Secure` flag only when `AGENTLESS_MONITORING_SECURE_COOKIES=true`. Enable it when serving the application through HTTPS.
+- Insecure cookies are accepted only with a loopback listener. Set `AGENTLESS_MONITORING_SECURE_COOKIES=true` when serving the application through HTTPS; this also enables browser-enforced `__Host-` cookie names.

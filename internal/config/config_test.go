@@ -81,6 +81,11 @@ func TestLoadRejectsInvalidEnvironment(t *testing.T) {
 			wantErr: "must be an IPv4 or IPv6 address",
 		},
 		{
+			name:    "insecure non-loopback listener",
+			values:  map[string]string{listenAddressEnv: "0.0.0.0:8080"},
+			wantErr: "secure cookies must be enabled",
+		},
+		{
 			name:    "invalid port",
 			values:  map[string]string{listenAddressEnv: "127.0.0.1:70000"},
 			wantErr: "port must be between 1 and 65535",

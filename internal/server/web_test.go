@@ -30,9 +30,12 @@ func TestAdministratorSetupAndLogoutFlow(t *testing.T) {
 	if response.Code != http.StatusOK {
 		t.Fatalf("setup status = %d, want 200", response.Code)
 	}
-	formCookie := findCookie(t, response.Result(), formCSRFCookie)
+	formCookie := findCookie(t, response.Result(), app.formCSRFCookieName())
 	if !formCookie.HttpOnly || !formCookie.Secure || formCookie.SameSite != http.SameSiteStrictMode {
 		t.Fatalf("form CSRF cookie flags = %#v", formCookie)
+	}
+	if !strings.HasPrefix(formCookie.Name, "__Host-") {
+		t.Fatalf("secure form cookie name = %q, want __Host- prefix", formCookie.Name)
 	}
 
 	form := url.Values{
@@ -46,9 +49,12 @@ func TestAdministratorSetupAndLogoutFlow(t *testing.T) {
 	response = serve(app, request)
 	assertRedirect(t, response, "/dashboard")
 
-	sessionCookie := findCookie(t, response.Result(), sessionCookieName)
+	sessionCookie := findCookie(t, response.Result(), app.sessionCookieName())
 	if !sessionCookie.HttpOnly || !sessionCookie.Secure || sessionCookie.SameSite != http.SameSiteStrictMode {
 		t.Fatalf("session cookie flags = %#v", sessionCookie)
+	}
+	if !strings.HasPrefix(sessionCookie.Name, "__Host-") {
+		t.Fatalf("secure session cookie name = %q, want __Host- prefix", sessionCookie.Name)
 	}
 	session, err := authStore.SessionByToken(context.Background(), sessionCookie.Value)
 	if err != nil {
@@ -117,7 +123,7 @@ func TestAdministratorSetupAndLogoutFlow(t *testing.T) {
 	}
 
 	response = serveRequest(app, http.MethodGet, "/login", nil)
-	loginCSRF := findCookie(t, response.Result(), formCSRFCookie)
+	loginCSRF := findCookie(t, response.Result(), app.formCSRFCookieName())
 	request = formRequest(http.MethodPost, "/login", url.Values{
 		"csrf_token": {loginCSRF.Value},
 		"username":   {"poc.admin"},
@@ -161,14 +167,14 @@ func TestWebSetupDisabledByDefault(t *testing.T) {
 func TestUnknownRouteDoesNotRotateSetupCSRF(t *testing.T) {
 	app, _ := newWebTestServer(t, false)
 	response := serveRequest(app, http.MethodGet, "/setup", nil)
-	csrfCookie := findCookie(t, response.Result(), formCSRFCookie)
+	csrfCookie := findCookie(t, response.Result(), app.formCSRFCookieName())
 
 	response = serveRequest(app, http.MethodGet, "/favicon.ico", nil)
 	if response.Code != http.StatusNotFound {
 		t.Fatalf("unknown route status = %d, want 404", response.Code)
 	}
 	for _, cookie := range response.Result().Cookies() {
-		if cookie.Name == formCSRFCookie {
+		if cookie.Name == app.formCSRFCookieName() {
 			t.Fatal("unknown route unexpectedly rotated the setup CSRF cookie")
 		}
 	}
@@ -180,7 +186,7 @@ func TestUnknownRouteDoesNotRotateSetupCSRF(t *testing.T) {
 func TestDiscoveryReviewAndGroupImportFlow(t *testing.T) {
 	app, authStore := newWebTestServer(t, false)
 	response := serveRequest(app, http.MethodGet, "/setup", nil)
-	setupCSRF := findCookie(t, response.Result(), formCSRFCookie)
+	setupCSRF := findCookie(t, response.Result(), app.formCSRFCookieName())
 	request := formRequest(http.MethodPost, "/setup", url.Values{
 		"csrf_token":            {setupCSRF.Value},
 		"username":              {"discovery.admin"},
@@ -189,7 +195,7 @@ func TestDiscoveryReviewAndGroupImportFlow(t *testing.T) {
 	})
 	request.AddCookie(setupCSRF)
 	response = serve(app, request)
-	sessionCookie := findCookie(t, response.Result(), sessionCookieName)
+	sessionCookie := findCookie(t, response.Result(), app.sessionCookieName())
 	session, err := authStore.SessionByToken(context.Background(), sessionCookie.Value)
 	if err != nil {
 		t.Fatalf("resolve session: %v", err)

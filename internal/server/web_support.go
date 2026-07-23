@@ -17,10 +17,12 @@ import (
 )
 
 const (
-	sessionCookieName = "agentless_monitoring_session"
-	formCSRFCookie    = "agentless_monitoring_form_csrf"
-	maximumFormBytes  = 32 * 1024
-	formCSRFDuration  = 10 * time.Minute
+	sessionCookieName       = "agentless_monitoring_session"
+	formCSRFCookie          = "agentless_monitoring_form_csrf"
+	secureSessionCookieName = "__Host-agentless_monitoring_session"
+	secureFormCSRFCookie    = "__Host-agentless_monitoring_form_csrf"
+	maximumFormBytes        = 32 * 1024
+	formCSRFDuration        = 10 * time.Minute
 )
 
 //go:embed templates/*.html assets/*.css
@@ -62,7 +64,7 @@ func (s *Server) renderAuthPage(w http.ResponseWriter, r *http.Request, status i
 		return
 	}
 	http.SetCookie(w, &http.Cookie{
-		Name:     formCSRFCookie,
+		Name:     s.formCSRFCookieName(),
 		Value:    csrfToken,
 		Path:     "/",
 		MaxAge:   int(formCSRFDuration.Seconds()),
@@ -116,7 +118,7 @@ func (s *Server) parseForm(w http.ResponseWriter, r *http.Request) bool {
 }
 
 func (s *Server) validateFormCSRF(r *http.Request) bool {
-	cookie, err := r.Cookie(formCSRFCookie)
+	cookie, err := r.Cookie(s.formCSRFCookieName())
 	if err != nil {
 		return false
 	}
@@ -125,7 +127,7 @@ func (s *Server) validateFormCSRF(r *http.Request) bool {
 
 func (s *Server) setSessionCookie(w http.ResponseWriter, token string, expiresAt time.Time) {
 	http.SetCookie(w, &http.Cookie{
-		Name:     sessionCookieName,
+		Name:     s.sessionCookieName(),
 		Value:    token,
 		Path:     "/",
 		Expires:  expiresAt,
@@ -134,6 +136,20 @@ func (s *Server) setSessionCookie(w http.ResponseWriter, token string, expiresAt
 		Secure:   s.secureCookies,
 		SameSite: http.SameSiteStrictMode,
 	})
+}
+
+func (s *Server) sessionCookieName() string {
+	if s.secureCookies {
+		return secureSessionCookieName
+	}
+	return sessionCookieName
+}
+
+func (s *Server) formCSRFCookieName() string {
+	if s.secureCookies {
+		return secureFormCSRFCookie
+	}
+	return formCSRFCookie
 }
 
 func clearCookie(w http.ResponseWriter, name string, secure bool) {

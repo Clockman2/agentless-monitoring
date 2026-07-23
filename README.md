@@ -27,7 +27,7 @@ Runtime settings can also be supplied through environment variables:
 | --- | --- | --- |
 | `AGENTLESS_MONITORING_LISTEN_ADDRESS` | `127.0.0.1:8080` | HTTP bind address; use an explicit IP and port |
 | `AGENTLESS_MONITORING_DATABASE_PATH` | `data/agentless-monitoring.db` | SQLite database file |
-| `AGENTLESS_MONITORING_SECURE_COOKIES` | `false` | Require HTTPS when browsers send authentication cookies |
+| `AGENTLESS_MONITORING_SECURE_COOKIES` | `false` | Require HTTPS and host-bound cookie names; mandatory for non-loopback listeners |
 | `AGENTLESS_MONITORING_ALLOW_WEB_SETUP` | `false` | Temporarily permit first-user creation in the browser; local CLI bootstrap is preferred |
 | `AGENTLESS_MONITORING_SHUTDOWN_TIMEOUT` | `10s` | Graceful shutdown deadline, up to five minutes |
 | `AGENTLESS_MONITORING_WORKERS` | `4` | Concurrent scheduled-check workers, from 1 to 64 |

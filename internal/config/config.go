@@ -49,6 +49,10 @@ func (c Config) Validate() error {
 	if err := validateListenAddress(c.ListenAddress); err != nil {
 		return fmt.Errorf("listen address: %w", err)
 	}
+	host, _, _ := net.SplitHostPort(c.ListenAddress)
+	if !net.ParseIP(host).IsLoopback() && !c.SecureCookies {
+		return fmt.Errorf("secure cookies must be enabled when listening on a non-loopback address")
+	}
 	if strings.TrimSpace(c.DatabasePath) == "" {
 		return fmt.Errorf("database path must not be empty")
 	}
