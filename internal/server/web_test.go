@@ -272,6 +272,7 @@ func TestDiscoveryReviewAndGroupImportFlow(t *testing.T) {
 	if response.Code != http.StatusOK || !strings.Contains(response.Body.String(), "192.168.70.10") ||
 		!strings.Contains(response.Body.String(), "22, 443, 2083") ||
 		!strings.Contains(response.Body.String(), "cPanel/WHM server") ||
+		!strings.Contains(response.Body.String(), "Unique host fingerprint in this scan") ||
 		!strings.Contains(response.Body.String(), "data-select-all-devices") {
 		t.Fatalf("discovery page response = %d", response.Code)
 	}

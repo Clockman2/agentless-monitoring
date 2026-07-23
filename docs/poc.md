@@ -70,6 +70,8 @@ Only scan targets that you own or have explicit authorization to assess. Unspeci
 
 The job runs in the background. Its page refreshes while it checks common TCP services, including web, mail, DNS, SSH, database, remote-management, cPanel, WHM, and webmail ports. Every port that accepts a TCP connection is recorded. A refusal is not treated as a discovered device. This avoids raw-socket and root requirements, but a host that silently drops every probe or exposes none of the configured services will not appear. A successful TCP connection proves that the address accepted the connection; it does not prove that every responding address represents a distinct physical or virtual machine because firewalls, proxies, and NAT can answer for multiple addresses.
 
+For addresses exposing SSH or TLS services, discovery also captures non-secret hashes of the normalized SSH host-key set and one preferred TLS service certificate. Matching SSH host-key sets are labeled as a likely same-VM group, with a matching TLS certificate shown as supporting evidence. Comparing the full available Ed25519, ECDSA, and RSA key set avoids grouping distinct hosts that happen to share one cloned or legacy key. A TLS-only match is labeled as a possible shared host or service. If TLS certificates match but SSH identities differ, the results explicitly report the conflicting identity evidence instead of merging the addresses into one VM.
+
 When the job completes:
 
 1. Review the responsive IP addresses.

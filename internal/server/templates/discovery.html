@@ -78,10 +78,10 @@
             <button class="button-secondary" type="button" data-select-all-devices aria-pressed="false">Select all</button>
           </div>
           <table>
-            <thead><tr><th>Select</th><th>IP address</th><th>Open ports (TCP accepted)</th><th>Machine type guess</th><th>State</th></tr></thead>
+            <thead><tr><th>Select</th><th>IP address</th><th>Open ports (TCP accepted)</th><th>Machine type guess</th><th>Host identity</th><th>State</th></tr></thead>
             <tbody>{{range .DiscoveredDevices}}<tr>
               <td>{{if eq .Status "new"}}<input class="row-check" type="checkbox" name="device_id" value="{{.ID}}" aria-label="Select {{.Address}}">{{else}}—{{end}}</td>
-              <td class="mono">{{.Address}}</td><td>{{.OpenPortsText}}</td><td>{{.GuessedType}}</td><td>{{.Status}}</td>
+              <td class="mono">{{.Address}}</td><td>{{.OpenPortsText}}</td><td>{{.GuessedType}}</td><td>{{.IdentityHint}}</td><td>{{.Status}}</td>
             </tr>{{end}}</tbody>
           </table>
           <div class="import-bar">
