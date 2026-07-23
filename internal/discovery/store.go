@@ -46,6 +46,8 @@ type Device struct {
 	OpenPorts     []uint16
 	OpenPortsText string
 	GuessedType   string
+	Fingerprints  []Fingerprint
+	IdentityHint  string
 	Status        string
 	MachineID     *int64
 	DiscoveredAt  string
@@ -126,7 +128,13 @@ func (s *Store) MarkRunning(ctx context.Context, id int64) error {
 	return s.updateJobStatus(ctx, id, JobRunning, "", "started_at = CURRENT_TIMESTAMP")
 }
 
-func (s *Store) RecordProbe(ctx context.Context, jobID int64, address string, openPorts []uint16) error {
+func (s *Store) RecordProbe(
+	ctx context.Context,
+	jobID int64,
+	address string,
+	openPorts []uint16,
+	fingerprints []Fingerprint,
+) error {
 	tx, err := s.db.BeginTx(ctx, nil)
 	if err != nil {
 		return fmt.Errorf("begin discovery result: %w", err)
@@ -159,6 +167,17 @@ func (s *Store) RecordProbe(ctx context.Context, jobID int64, address string, op
 				INSERT INTO discovered_device_ports (device_id, port) VALUES (?, ?)
 			`, deviceID, int(port)); err != nil {
 				return fmt.Errorf("record discovered port: %w", err)
+			}
+		}
+		if _, err := tx.ExecContext(ctx, "DELETE FROM discovered_device_fingerprints WHERE device_id = ?", deviceID); err != nil {
+			return fmt.Errorf("replace discovered fingerprints: %w", err)
+		}
+		for _, fingerprint := range normalizedFingerprints(fingerprints) {
+			if _, err := tx.ExecContext(ctx, `
+				INSERT INTO discovered_device_fingerprints (device_id, kind, value)
+				VALUES (?, ?, ?)
+			`, deviceID, fingerprint.Kind, fingerprint.Value); err != nil {
+				return fmt.Errorf("record discovered fingerprint: %w", err)
 			}
 		}
 	}
@@ -216,11 +235,18 @@ func (s *Store) ListDevices(ctx context.Context, jobID int64) ([]Device, error) 
 	rows, err := s.db.QueryContext(ctx, `
 		SELECT devices.id, devices.job_id, devices.address, devices.detected_port,
 		       devices.status, devices.machine_id, devices.discovered_at,
-		       COALESCE(group_concat(ports.port), '')
+		       COALESCE((
+		           SELECT group_concat(port)
+		           FROM discovered_device_ports
+		           WHERE device_id = devices.id
+		       ), ''),
+		       COALESCE((
+		           SELECT group_concat(kind || '=' || value)
+		           FROM discovered_device_fingerprints
+		           WHERE device_id = devices.id
+		       ), '')
 		FROM discovered_devices AS devices
-		LEFT JOIN discovered_device_ports AS ports ON ports.device_id = devices.id
 		WHERE devices.job_id = ?
-		GROUP BY devices.id
 		ORDER BY devices.address
 	`, jobID)
 	if err != nil {
@@ -232,10 +258,10 @@ func (s *Store) ListDevices(ctx context.Context, jobID int64) ([]Device, error) 
 	for rows.Next() {
 		var device Device
 		var port, machineID sql.NullInt64
-		var openPorts string
+		var openPorts, fingerprints string
 		if err := rows.Scan(
 			&device.ID, &device.JobID, &device.Address, &port,
-			&device.Status, &machineID, &device.DiscoveredAt, &openPorts,
+			&device.Status, &machineID, &device.DiscoveredAt, &openPorts, &fingerprints,
 		); err != nil {
 			return nil, fmt.Errorf("scan discovered device: %w", err)
 		}
@@ -250,11 +276,13 @@ func (s *Store) ListDevices(ctx context.Context, jobID int64) ([]Device, error) 
 		device.OpenPorts = parsePorts(openPorts)
 		device.OpenPortsText = formatPorts(device.OpenPorts)
 		device.GuessedType = guessMachineType(device.OpenPorts)
+		device.Fingerprints = parseFingerprints(fingerprints)
 		devices = append(devices, device)
 	}
 	if err := rows.Err(); err != nil {
 		return nil, fmt.Errorf("iterate discovered devices: %w", err)
 	}
+	classifyIdentityGroups(devices)
 	return devices, nil
 }
 

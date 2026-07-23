@@ -3,10 +3,13 @@ package discovery
 import (
 	"context"
 	"errors"
+	"fmt"
 	"net/netip"
 	"slices"
 	"sync"
+	"sync/atomic"
 	"testing"
+	"time"
 )
 
 func TestParseTargetAcceptsPublicIPv4CIDR(t *testing.T) {
@@ -70,6 +73,12 @@ func TestScannerReportsResponsiveAddressesAndOpenPorts(t *testing.T) {
 		probe: func(_ context.Context, address netip.Addr, port uint16) bool {
 			return address == openAddress && (port == 22 || port == 443)
 		},
+		identityProbe: func(_ context.Context, address netip.Addr, ports []uint16) []Fingerprint {
+			if address == openAddress && slices.Equal(ports, []uint16{22, 443}) {
+				return []Fingerprint{{Kind: fingerprintSSH, Value: "SHA256:test"}}
+			}
+			return nil
+		},
 	}
 
 	results := make(map[netip.Addr]Result)
@@ -86,6 +95,9 @@ func TestScannerReportsResponsiveAddressesAndOpenPorts(t *testing.T) {
 	if !results[openAddress].Responsive || !slices.Equal(results[openAddress].OpenPorts, []uint16{22, 443}) {
 		t.Fatalf("open result = %#v", results[openAddress])
 	}
+	if !slices.Equal(results[openAddress].Fingerprints, []Fingerprint{{Kind: fingerprintSSH, Value: "SHA256:test"}}) {
+		t.Fatalf("open fingerprints = %#v", results[openAddress].Fingerprints)
+	}
 	if results[refusedAddress].Responsive || len(results[refusedAddress].OpenPorts) != 0 {
 		t.Fatalf("refused result = %#v", results[refusedAddress])
 	}
@@ -99,5 +111,39 @@ func TestCommonTCPPortsIncludeCPanelAndWHM(t *testing.T) {
 		if !slices.Contains(commonTCPPorts, port) {
 			t.Errorf("commonTCPPorts does not include %d", port)
 		}
+	}
+}
+
+func TestScannerBoundsConcurrentIdentityProbes(t *testing.T) {
+	var active, maximum atomic.Int32
+	scanner := &Scanner{
+		workers:       8,
+		ports:         []uint16{22},
+		identitySlots: make(chan struct{}, 2),
+		probe: func(context.Context, netip.Addr, uint16) bool {
+			return true
+		},
+		identityProbe: func(context.Context, netip.Addr, []uint16) []Fingerprint {
+			current := active.Add(1)
+			defer active.Add(-1)
+			for {
+				observed := maximum.Load()
+				if current <= observed || maximum.CompareAndSwap(observed, current) {
+					break
+				}
+			}
+			time.Sleep(10 * time.Millisecond)
+			return nil
+		},
+	}
+	addresses := make([]netip.Addr, 0, 8)
+	for value := 1; value <= 8; value++ {
+		addresses = append(addresses, netip.MustParseAddr(fmt.Sprintf("192.0.2.%d", value)))
+	}
+	if err := scanner.Scan(context.Background(), addresses, func(Result) error { return nil }); err != nil {
+		t.Fatalf("Scan() error = %v", err)
+	}
+	if got := maximum.Load(); got > 2 {
+		t.Fatalf("maximum concurrent identity probes = %d, want at most 2", got)
 	}
 }

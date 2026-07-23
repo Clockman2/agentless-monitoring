@@ -35,14 +35,15 @@ func TestOpenCreatesSecureMigratedDatabase(t *testing.T) {
 	assertTableExists(t, db, "discovery_jobs")
 	assertTableExists(t, db, "discovered_devices")
 	assertTableExists(t, db, "discovered_device_ports")
+	assertTableExists(t, db, "discovered_device_fingerprints")
 	assertTableExists(t, db, "check_results")
 
 	var migrationCount int
 	if err := db.QueryRow("SELECT COUNT(*) FROM schema_migrations").Scan(&migrationCount); err != nil {
 		t.Fatalf("count migrations: %v", err)
 	}
-	if migrationCount != 7 {
-		t.Errorf("migration count = %d, want 7", migrationCount)
+	if migrationCount != 8 {
+		t.Errorf("migration count = %d, want 8", migrationCount)
 	}
 
 	var foreignKeys int
@@ -82,8 +83,8 @@ func TestOpenAppliesMigrationsOnce(t *testing.T) {
 	if err := db.QueryRow("SELECT COUNT(*) FROM schema_migrations").Scan(&count); err != nil {
 		t.Fatalf("count migrations: %v", err)
 	}
-	if count != 7 {
-		t.Errorf("migration count = %d, want 7", count)
+	if count != 8 {
+		t.Errorf("migration count = %d, want 8", count)
 	}
 }
 

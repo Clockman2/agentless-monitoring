@@ -249,7 +249,13 @@ func TestDiscoveryReviewAndGroupImportFlow(t *testing.T) {
 	if err := app.discoveryStore.MarkRunning(context.Background(), job.ID); err != nil {
 		t.Fatalf("mark discovery running: %v", err)
 	}
-	if err := app.discoveryStore.RecordProbe(context.Background(), job.ID, "192.168.70.10", []uint16{22, 443, 2083}); err != nil {
+	if err := app.discoveryStore.RecordProbe(
+		context.Background(),
+		job.ID,
+		"192.168.70.10",
+		[]uint16{22, 443, 2083},
+		[]discovery.Fingerprint{{Kind: "ssh-host-key", Value: "SHA256:web-test"}},
+	); err != nil {
 		t.Fatalf("record discovered device: %v", err)
 	}
 	if err := app.discoveryStore.Complete(context.Background(), job.ID); err != nil {

@@ -3,6 +3,7 @@ package discovery
 import (
 	"context"
 	"path/filepath"
+	"slices"
 	"testing"
 
 	"github.com/Clockman2/agentless-monitoring/internal/auth"
@@ -29,10 +30,16 @@ func TestDiscoveryLifecycleAndImport(t *testing.T) {
 	if err := store.MarkRunning(ctx, job.ID); err != nil {
 		t.Fatalf("MarkRunning() error = %v", err)
 	}
-	if err := store.RecordProbe(ctx, job.ID, "192.168.50.1", []uint16{2083, 22, 443, 2083}); err != nil {
+	fingerprints := []Fingerprint{
+		{Kind: fingerprintSSH, Value: "SHA256:test-host-key"},
+		{Kind: fingerprintTLS, Value: "2083:test-certificate"},
+	}
+	if err := store.RecordProbe(
+		ctx, job.ID, "192.168.50.1", []uint16{2083, 22, 443, 2083}, fingerprints,
+	); err != nil {
 		t.Fatalf("RecordProbe(active) error = %v", err)
 	}
-	if err := store.RecordProbe(ctx, job.ID, "", nil); err != nil {
+	if err := store.RecordProbe(ctx, job.ID, "", nil, nil); err != nil {
 		t.Fatalf("RecordProbe(inactive) error = %v", err)
 	}
 	if err := store.Complete(ctx, job.ID); err != nil {
@@ -51,7 +58,9 @@ func TestDiscoveryLifecycleAndImport(t *testing.T) {
 		t.Fatalf("ListDevices() error = %v", err)
 	}
 	if len(devices) != 1 || devices[0].DetectedPort == nil || *devices[0].DetectedPort != 443 ||
-		devices[0].OpenPortsText != "22, 443, 2083" || devices[0].GuessedType != "cPanel/WHM server" {
+		devices[0].OpenPortsText != "22, 443, 2083" || devices[0].GuessedType != "cPanel/WHM server" ||
+		!slices.Equal(devices[0].Fingerprints, normalizedFingerprints(fingerprints)) ||
+		devices[0].IdentityHint != "Unique host fingerprint in this scan" {
 		t.Fatalf("devices = %#v", devices)
 	}
 

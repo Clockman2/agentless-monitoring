@@ -75,9 +75,11 @@ func (s *Service) run(jobID int64, addresses []netip.Addr) {
 	}
 	err := s.scanner.Scan(s.ctx, addresses, func(result Result) error {
 		if result.Responsive {
-			return s.store.RecordProbe(s.ctx, jobID, result.Address.String(), result.OpenPorts)
+			return s.store.RecordProbe(
+				s.ctx, jobID, result.Address.String(), result.OpenPorts, result.Fingerprints,
+			)
 		}
-		return s.store.RecordProbe(s.ctx, jobID, "", nil)
+		return s.store.RecordProbe(s.ctx, jobID, "", nil, nil)
 	})
 	if err != nil {
 		s.recordFailure(jobID, err)

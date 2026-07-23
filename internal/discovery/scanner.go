@@ -16,6 +16,7 @@ const (
 	minimumPrefixBits = 24
 	maximumAddresses  = 256
 	defaultWorkers    = 32
+	identityWorkers   = 4
 	probeTimeout      = 450 * time.Millisecond
 )
 
@@ -32,21 +33,29 @@ type Target struct {
 }
 
 type Result struct {
-	Address    netip.Addr
-	Responsive bool
-	OpenPorts  []uint16
+	Address      netip.Addr
+	Responsive   bool
+	OpenPorts    []uint16
+	Fingerprints []Fingerprint
 }
 
 type ProbeFunc func(context.Context, netip.Addr, uint16) bool
 
 type Scanner struct {
-	probe   ProbeFunc
-	ports   []uint16
-	workers int
+	probe         ProbeFunc
+	identityProbe IdentityProbeFunc
+	identitySlots chan struct{}
+	ports         []uint16
+	workers       int
 }
 
 func NewScanner() *Scanner {
-	return &Scanner{probe: tcpProbe, ports: slices.Clone(commonTCPPorts), workers: defaultWorkers}
+	return &Scanner{
+		probe: tcpProbe, identityProbe: probeIdentity,
+		identitySlots: make(chan struct{}, identityWorkers),
+		ports:         slices.Clone(commonTCPPorts),
+		workers:       defaultWorkers,
+	}
 }
 
 func ParseTarget(value string) (Target, error) {
@@ -232,6 +241,18 @@ func (s *Scanner) probeAddress(ctx context.Context, address netip.Addr) Result {
 		}
 		if ctx.Err() != nil {
 			return result
+		}
+	}
+	if result.Responsive && s.identityProbe != nil && ctx.Err() == nil {
+		if s.identitySlots == nil {
+			result.Fingerprints = s.identityProbe(ctx, address, result.OpenPorts)
+		} else {
+			select {
+			case s.identitySlots <- struct{}{}:
+				result.Fingerprints = s.identityProbe(ctx, address, result.OpenPorts)
+				<-s.identitySlots
+			case <-ctx.Done():
+			}
 		}
 	}
 	return result
