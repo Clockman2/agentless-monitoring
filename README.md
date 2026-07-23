@@ -6,7 +6,7 @@ The project is being built incrementally. The current proof of concept provides 
 
 ## Run locally
 
-Go 1.24 or newer is required.
+Go 1.25 or newer is required.
 
 ```sh
 go run ./cmd/agentless-monitoring -create-admin -username admin
