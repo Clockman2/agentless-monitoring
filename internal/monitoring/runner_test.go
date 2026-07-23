@@ -5,6 +5,8 @@ import (
 	"io"
 	"net"
 	"net/http"
+	"net/netip"
+	"net/url"
 	"strings"
 	"testing"
 	"time"
@@ -72,6 +74,54 @@ func TestRunBlocksNonUnicastTarget(t *testing.T) {
 		t.Fatalf("result = %#v", result)
 	}
 }
+
+func TestRunBlocksSensitiveServiceTargetByDefault(t *testing.T) {
+	result := NewRunner().Run(context.Background(), machines.Machine{
+		Target: "169.254.169.254", CheckType: machines.CheckTCP, Port: 80, Timeout: time.Second,
+	})
+	if result.Status != machines.StatusCritical || result.ErrorCategory != "configuration" ||
+		!strings.Contains(result.Summary, "blocked by network policy") {
+		t.Fatalf("result = %#v", result)
+	}
+}
+
+func TestRunAllowsSensitiveServiceTargetWithOverride(t *testing.T) {
+	server, client := net.Pipe()
+	t.Cleanup(func() { _ = client.Close() })
+	runner := NewRunnerWithOptions(RunnerOptions{AllowSensitiveTargets: true})
+	runner.dialContext = func(context.Context, string, string) (net.Conn, error) {
+		return server, nil
+	}
+	result := runner.Run(context.Background(), machines.Machine{
+		Target: "169.254.169.254", CheckType: machines.CheckTCP, Port: 80, Timeout: time.Second,
+	})
+	if result.Status != machines.StatusHealthy {
+		t.Fatalf("result = %#v", result)
+	}
+}
+
+func TestSameEndpointIncludesEffectivePort(t *testing.T) {
+	address := netip.MustParseAddr("192.0.2.10")
+	for _, test := range []struct {
+		raw  string
+		want bool
+	}{
+		{raw: "http://192.0.2.10/next", want: true},
+		{raw: "http://192.0.2.10:80/next", want: true},
+		{raw: "http://192.0.2.10:2375/next", want: false},
+		{raw: "https://192.0.2.10/next", want: false},
+		{raw: "http://192.0.2.11/next", want: false},
+	} {
+		endpoint, err := url.Parse(test.raw)
+		if err != nil {
+			t.Fatalf("parse %q: %v", test.raw, err)
+		}
+		if got := sameEndpoint(endpoint, address, "http", 80); got != test.want {
+			t.Errorf("sameEndpoint(%q) = %t, want %t", test.raw, got, test.want)
+		}
+	}
+}
+
 func TestRunHTTPClassifiesUnexpectedStatus(t *testing.T) {
 	runner := NewRunner()
 	runner.client.Transport = roundTripFunc(func(*http.Request) (*http.Response, error) {

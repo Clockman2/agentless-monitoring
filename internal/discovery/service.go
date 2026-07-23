@@ -7,29 +7,53 @@ import (
 	"net/netip"
 	"sync/atomic"
 	"time"
+
+	"github.com/Clockman2/agentless-monitoring/internal/netpolicy"
 )
 
-var ErrScanInProgress = errors.New("a discovery scan is already running")
+var (
+	ErrScanInProgress  = errors.New("a discovery scan is already running")
+	ErrSensitiveTarget = errors.New("discovery target includes a sensitive cloud or platform service address")
+)
 
 type Service struct {
-	ctx     context.Context
-	store   *Store
-	scanner *Scanner
-	logger  *slog.Logger
-	running atomic.Bool
+	ctx                   context.Context
+	store                 *Store
+	scanner               *Scanner
+	logger                *slog.Logger
+	running               atomic.Bool
+	allowSensitiveTargets bool
 }
 
 func NewService(ctx context.Context, store *Store, logger *slog.Logger) *Service {
+	return NewServiceWithOptions(ctx, store, logger, ServiceOptions{})
+}
+
+type ServiceOptions struct {
+	AllowSensitiveTargets bool
+}
+
+func NewServiceWithOptions(ctx context.Context, store *Store, logger *slog.Logger, options ServiceOptions) *Service {
 	if logger == nil {
 		logger = slog.Default()
 	}
-	return &Service{ctx: ctx, store: store, scanner: NewScanner(), logger: logger}
+	return &Service{
+		ctx: ctx, store: store, scanner: NewScanner(), logger: logger,
+		allowSensitiveTargets: options.AllowSensitiveTargets,
+	}
 }
 
 func (s *Service) Start(ctx context.Context, actorUserID int64, targetText string) (Job, error) {
 	target, err := ParseTarget(targetText)
 	if err != nil {
 		return Job{}, err
+	}
+	if !s.allowSensitiveTargets {
+		for _, address := range target.Addresses {
+			if netpolicy.IsSensitiveServiceAddress(address) {
+				return Job{}, ErrSensitiveTarget
+			}
+		}
 	}
 	if !s.running.CompareAndSwap(false, true) {
 		return Job{}, ErrScanInProgress

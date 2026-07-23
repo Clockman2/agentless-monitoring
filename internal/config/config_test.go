@@ -33,6 +33,7 @@ func TestLoadOverrides(t *testing.T) {
 		secureCookiesEnv:         "true",
 		allowWebSetupEnv:         "true",
 		trustedProxiesEnv:        "127.0.0.1, 10.0.0.0/8",
+		allowSensitiveTargetsEnv: "true",
 		shutdownTimeoutEnv:       "30s",
 		monitoringWorkersEnv:     "8",
 		schedulerPollIntervalEnv: "5s",
@@ -59,6 +60,9 @@ func TestLoadOverrides(t *testing.T) {
 	}
 	if len(cfg.TrustedProxies) != 2 {
 		t.Errorf("TrustedProxies = %#v, want two entries", cfg.TrustedProxies)
+	}
+	if !cfg.AllowSensitiveTargets {
+		t.Error("AllowSensitiveTargets = false, want true")
 	}
 	if cfg.ShutdownTimeout != 30*time.Second {
 		t.Errorf("ShutdownTimeout = %s, want 30s", cfg.ShutdownTimeout)
@@ -113,6 +117,11 @@ func TestLoadRejectsInvalidEnvironment(t *testing.T) {
 			name:    "invalid trusted proxy",
 			values:  map[string]string{trustedProxiesEnv: "proxy.internal"},
 			wantErr: trustedProxiesEnv,
+		},
+		{
+			name:    "invalid sensitive-target setting",
+			values:  map[string]string{allowSensitiveTargetsEnv: "sometimes"},
+			wantErr: allowSensitiveTargetsEnv,
 		},
 		{
 			name:    "empty database path",

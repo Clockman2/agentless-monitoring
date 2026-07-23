@@ -57,7 +57,8 @@ func (s *Server) discoveryStartSubmit(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	job, err := s.discovery.Start(r.Context(), session.User.ID, r.FormValue("target"))
-	if errors.Is(err, discovery.ErrInvalidTarget) || errors.Is(err, discovery.ErrScanInProgress) {
+	if errors.Is(err, discovery.ErrInvalidTarget) || errors.Is(err, discovery.ErrSensitiveTarget) ||
+		errors.Is(err, discovery.ErrScanInProgress) {
 		s.renderDiscovery(w, r, session, http.StatusBadRequest, err.Error())
 		return
 	}

@@ -49,7 +49,7 @@ Select **Machines** or **Add machine** from the dashboard, then enter:
 - A check interval between 10 seconds and 24 hours.
 - The consecutive failure and recovery thresholds.
 
-Literal public and private unicast IP targets are supported. Hostnames remain intentionally unsupported in this POC. HTTP checks disable proxy use, restrict redirects to the same IP and scheme, and apply configured timeouts.
+Literal public and private unicast IP targets are supported. Hostnames remain intentionally unsupported in this POC. HTTP checks disable proxy use, restrict redirects to the same IP, scheme, and effective port, and apply configured timeouts.
 
 After adding the machine, the scheduler runs the check when it becomes due. **Run now** remains available for immediate diagnostics.
 
@@ -65,7 +65,7 @@ Open **Discovery** in the sidebar. The target may be:
 - An IPv4 CIDR from `/24` through `/32`, such as `203.0.113.0/24`.
 - An inclusive IPv4 range containing at most 256 addresses, such as `203.0.113.10-203.0.113.40`.
 
-Before starting each job, confirm that you own the target or have explicit authorization to scan it. Unspecified, multicast, IPv6, malformed, reversed, and oversized targets are rejected. Only one discovery job runs at a time.
+Before starting each job, confirm that you own the target or have explicit authorization to scan it. Unspecified, multicast, IPv6, malformed, reversed, and oversized targets are rejected. Well-known cloud metadata, workload-credential, and platform service addresses are denied by default for discovery and monitoring. Set `AGENTLESS_MONITORING_ALLOW_SENSITIVE_TARGETS=true` only when an authorized deployment explicitly needs them. Only one discovery job runs at a time.
 
 The job runs in the background. Its page refreshes while it checks TCP ports 22, 80, 443, 445, 3389, and 8006. A successful connection or an explicit connection refusal identifies a responsive host. This avoids raw-socket and root requirements, but a host that silently drops every probe will not appear.
 

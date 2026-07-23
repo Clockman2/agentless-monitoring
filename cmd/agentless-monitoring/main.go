@@ -75,7 +75,9 @@ func main() {
 
 	discoveryStore := discovery.NewStore(db)
 	machineStore := machines.NewStore(db)
-	checkRunner := monitoring.NewRunner()
+	checkRunner := monitoring.NewRunnerWithOptions(monitoring.RunnerOptions{
+		AllowSensitiveTargets: cfg.AllowSensitiveTargets,
+	})
 	scheduler := monitoring.NewScheduler(machineStore, checkRunner, monitoring.SchedulerOptions{
 		Workers: cfg.MonitoringWorkers, PollInterval: cfg.SchedulerPollInterval, Logger: logger,
 	})
@@ -87,7 +89,9 @@ func main() {
 		MachineStore:   machineStore,
 		CheckRunner:    checkRunner,
 		DiscoveryStore: discoveryStore,
-		Discovery:      discovery.NewService(ctx, discoveryStore, logger),
+		Discovery: discovery.NewServiceWithOptions(ctx, discoveryStore, logger, discovery.ServiceOptions{
+			AllowSensitiveTargets: cfg.AllowSensitiveTargets,
+		}),
 		Scheduler:      scheduler,
 		SecureCookies:  cfg.SecureCookies,
 		AllowWebSetup:  cfg.AllowWebSetup,

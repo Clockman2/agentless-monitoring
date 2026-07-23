@@ -2,6 +2,7 @@ package discovery
 
 import (
 	"context"
+	"errors"
 	"net/netip"
 	"path/filepath"
 	"testing"
@@ -10,6 +11,13 @@ import (
 	"github.com/Clockman2/agentless-monitoring/internal/auth"
 	"github.com/Clockman2/agentless-monitoring/internal/storage"
 )
+
+func TestServiceBlocksSensitiveTargetByDefault(t *testing.T) {
+	service := &Service{}
+	if _, err := service.Start(context.Background(), 1, "169.254.169.254"); !errors.Is(err, ErrSensitiveTarget) {
+		t.Fatalf("Start() error = %v, want ErrSensitiveTarget", err)
+	}
+}
 
 func TestServiceCompletesBackgroundScan(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())

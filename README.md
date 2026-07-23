@@ -30,6 +30,7 @@ Runtime settings can also be supplied through environment variables:
 | `AGENTLESS_MONITORING_SECURE_COOKIES` | `false` | Require HTTPS and host-bound cookie names; mandatory for non-loopback listeners |
 | `AGENTLESS_MONITORING_ALLOW_WEB_SETUP` | `false` | Temporarily permit first-user creation in the browser; local CLI bootstrap is preferred |
 | `AGENTLESS_MONITORING_TRUSTED_PROXIES` | empty | Comma-separated proxy IPs or CIDRs allowed to supply `X-Forwarded-For` |
+| `AGENTLESS_MONITORING_ALLOW_SENSITIVE_TARGETS` | `false` | Permit well-known cloud metadata and workload-credential endpoints |
 | `AGENTLESS_MONITORING_SHUTDOWN_TIMEOUT` | `10s` | Graceful shutdown deadline, up to five minutes |
 | `AGENTLESS_MONITORING_WORKERS` | `4` | Concurrent scheduled-check workers, from 1 to 64 |
 | `AGENTLESS_MONITORING_POLL_INTERVAL` | `2s` | How often the scheduler looks for due checks, from 500ms to one minute |

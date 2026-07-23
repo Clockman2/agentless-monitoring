@@ -17,6 +17,7 @@ const (
 	secureCookiesEnv         = "AGENTLESS_MONITORING_SECURE_COOKIES"
 	allowWebSetupEnv         = "AGENTLESS_MONITORING_ALLOW_WEB_SETUP"
 	trustedProxiesEnv        = "AGENTLESS_MONITORING_TRUSTED_PROXIES"
+	allowSensitiveTargetsEnv = "AGENTLESS_MONITORING_ALLOW_SENSITIVE_TARGETS"
 	shutdownTimeoutEnv       = "AGENTLESS_MONITORING_SHUTDOWN_TIMEOUT"
 	monitoringWorkersEnv     = "AGENTLESS_MONITORING_WORKERS"
 	schedulerPollIntervalEnv = "AGENTLESS_MONITORING_POLL_INTERVAL"
@@ -37,6 +38,7 @@ type Config struct {
 	SecureCookies         bool
 	AllowWebSetup         bool
 	TrustedProxies        []netip.Prefix
+	AllowSensitiveTargets bool
 	ShutdownTimeout       time.Duration
 	MonitoringWorkers     int
 	SchedulerPollInterval time.Duration
@@ -112,6 +114,13 @@ func load(lookupEnv func(string) (string, bool)) (Config, error) {
 			return Config{}, fmt.Errorf("%s: %w", trustedProxiesEnv, err)
 		}
 		cfg.TrustedProxies = trustedProxies
+	}
+	if value, ok := lookupEnv(allowSensitiveTargetsEnv); ok {
+		allowSensitiveTargets, err := strconv.ParseBool(value)
+		if err != nil {
+			return Config{}, fmt.Errorf("%s must be true or false", allowSensitiveTargetsEnv)
+		}
+		cfg.AllowSensitiveTargets = allowSensitiveTargets
 	}
 	if value, ok := lookupEnv(shutdownTimeoutEnv); ok {
 		duration, err := time.ParseDuration(value)
