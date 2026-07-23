@@ -52,7 +52,11 @@ func (s *Server) discoveryStartSubmit(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "invalid form token", http.StatusForbidden)
 		return
 	}
-	job, err := s.discovery.Start(r.Context(), session.User.ID, r.FormValue("target_cidr"))
+	if r.FormValue("authorized") != "yes" {
+		s.renderDiscovery(w, r, session, http.StatusBadRequest, "Confirm that you are authorized to scan the target.")
+		return
+	}
+	job, err := s.discovery.Start(r.Context(), session.User.ID, r.FormValue("target"))
 	if errors.Is(err, discovery.ErrInvalidTarget) || errors.Is(err, discovery.ErrScanInProgress) {
 		s.renderDiscovery(w, r, session, http.StatusBadRequest, err.Error())
 		return

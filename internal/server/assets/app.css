@@ -80,6 +80,8 @@ th { color: #8491a0; font-size: 10px; letter-spacing: .08em; text-transform: upp
 .status-label.completed { color: #58cc8d; }
 .status-label.failed { color: #f06b70; }
 .inline-form { display: grid; grid-template-columns: minmax(240px, 1fr) auto; align-items: end; gap: 12px; padding: 16px; }
+.authorization-check { grid-column: 1 / -1; display: flex; align-items: center; gap: 9px; font-weight: 500; }
+.authorization-check input { width: auto; }
 .form-note { margin: -4px 16px 16px; color: #8f9bab; font-size: 12px; }
 .table-link { color: #8bc5ff; text-decoration: none; }
 .row-check { width: auto; }

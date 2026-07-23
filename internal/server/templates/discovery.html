@@ -26,7 +26,7 @@
   </aside>
   <div class="app-shell">
     <header class="topbar">
-      <div><p class="eyebrow">Inventory</p><h1>Local discovery</h1></div>
+      <div><p class="eyebrow">Inventory</p><h1>Network discovery</h1></div>
       <div class="user-menu">
         <span>{{.Username}}</span>
         <form method="post" action="/logout">
@@ -40,35 +40,36 @@
       {{if .Message}}<div class="alert alert-success" role="status">{{.Message}}</div>{{end}}
 
       <section class="panel">
-        <div class="panel-header"><div><h2>Start a private-network scan</h2><p>Scans are limited to one private IPv4 /24 (254 usable addresses) or smaller.</p></div></div>
+        <div class="panel-header"><div><h2>Start an authorized network scan</h2><p>Enter one IPv4 address, a CIDR no larger than /24, or an inclusive range of up to 256 addresses.</p></div></div>
         <form method="post" action="/discovery/scans" class="inline-form">
           <input type="hidden" name="csrf_token" value="{{.CSRFToken}}">
-          <label>Target CIDR
-            <input name="target_cidr" required placeholder="192.168.1.0/24" list="local-cidrs" autocomplete="off">
+          <label>IP address, CIDR, or range
+            <input name="target" required placeholder="203.0.113.10 or 203.0.113.10-203.0.113.40" list="local-cidrs" autocomplete="off">
             <datalist id="local-cidrs">{{range .SuggestedCIDRs}}<option value="{{.}}">{{end}}</datalist>
           </label>
           <button type="submit" {{if .DiscoveryRunning}}disabled{{end}}>Start discovery</button>
+          <label class="authorization-check"><input type="checkbox" name="authorized" value="yes" required> I confirm that I own this target or have explicit authorization to scan it.</label>
         </form>
-        <p class="form-note">Detection checks common TCP ports without credentials. Hosts that drop every probe may not appear.</p>
+        <p class="form-note">Public and private unicast IPv4 targets are supported. Detection checks common TCP ports without credentials; hosts that drop every probe may not appear.</p>
       </section>
 
       <section class="panel">
         <div class="panel-header"><div><h2>Recent scans</h2><p>Progress and results are stored across service restarts.</p></div></div>
         {{if .DiscoveryJobs}}
         <table>
-          <thead><tr><th>Network</th><th>Status</th><th>Progress</th><th>Responsive</th><th>Started</th></tr></thead>
+          <thead><tr><th>Target</th><th>Status</th><th>Progress</th><th>Responsive</th><th>Started</th></tr></thead>
           <tbody>{{range .DiscoveryJobs}}<tr>
-            <td><a class="table-link mono" href="/discovery?job={{.ID}}">{{.TargetCIDR}}</a></td>
+            <td><a class="table-link mono" href="/discovery?job={{.ID}}">{{.Target}}</a></td>
             <td><span class="status-label {{.Status}}">{{.Status}}</span></td>
             <td>{{.ProcessedAddresses}} / {{.TotalAddresses}}</td><td>{{.ResponsiveHosts}}</td><td>{{.CreatedAt}}</td>
           </tr>{{end}}</tbody>
         </table>
-        {{else}}<div class="empty-state"><strong>No discovery scans yet</strong><p>Enter a local CIDR above to identify responsive devices.</p></div>{{end}}
+        {{else}}<div class="empty-state"><strong>No discovery scans yet</strong><p>Enter an authorized IPv4 target above to identify responsive devices.</p></div>{{end}}
       </section>
 
       {{if .DiscoveryJob}}
       <section class="panel">
-        <div class="panel-header"><div><h2>Results for <span class="mono">{{.DiscoveryJob.TargetCIDR}}</span></h2><p>{{.DiscoveryJob.ResponsiveHosts}} responsive of {{.DiscoveryJob.ProcessedAddresses}} checked.</p></div><span class="status-label {{.DiscoveryJob.Status}}">{{.DiscoveryJob.Status}}</span></div>
+        <div class="panel-header"><div><h2>Results for <span class="mono">{{.DiscoveryJob.Target}}</span></h2><p>{{.DiscoveryJob.ResponsiveHosts}} responsive of {{.DiscoveryJob.ProcessedAddresses}} checked.</p></div><span class="status-label {{.DiscoveryJob.Status}}">{{.DiscoveryJob.Status}}</span></div>
         {{if .DiscoveryJob.Error}}<div class="alert alert-error">{{.DiscoveryJob.Error}}</div>{{end}}
         {{if .DiscoveredDevices}}
         <form method="post" action="/discovery/jobs/{{.DiscoveryJob.ID}}/import">

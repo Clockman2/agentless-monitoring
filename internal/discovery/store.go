@@ -28,7 +28,7 @@ var (
 
 type Job struct {
 	ID                 int64
-	TargetCIDR         string
+	Target             string
 	Status             JobStatus
 	TotalAddresses     int
 	ProcessedAddresses int
@@ -59,11 +59,11 @@ type Store struct {
 
 func NewStore(db *sql.DB) *Store { return &Store{db: db} }
 
-func (s *Store) CreateJob(ctx context.Context, actorUserID int64, targetCIDR string, total int) (Job, error) {
+func (s *Store) CreateJob(ctx context.Context, actorUserID int64, target string, total int) (Job, error) {
 	result, err := s.db.ExecContext(ctx, `
 		INSERT INTO discovery_jobs (target_cidr, total_addresses, created_by)
 		VALUES (?, ?, ?)
-	`, targetCIDR, total, actorUserID)
+	`, target, total, actorUserID)
 	if err != nil {
 		return Job{}, fmt.Errorf("create discovery job: %w", err)
 	}
@@ -81,7 +81,7 @@ func (s *Store) Job(ctx context.Context, id int64) (Job, error) {
 		       responsive_hosts, COALESCE(error, ''), created_at
 		FROM discovery_jobs WHERE id = ?
 	`, id).Scan(
-		&job.ID, &job.TargetCIDR, &job.Status, &job.TotalAddresses,
+		&job.ID, &job.Target, &job.Status, &job.TotalAddresses,
 		&job.ProcessedAddresses, &job.ResponsiveHosts, &job.Error, &job.CreatedAt,
 	)
 	if err != nil {
@@ -105,7 +105,7 @@ func (s *Store) ListJobs(ctx context.Context) ([]Job, error) {
 	for rows.Next() {
 		var job Job
 		if err := rows.Scan(
-			&job.ID, &job.TargetCIDR, &job.Status, &job.TotalAddresses,
+			&job.ID, &job.Target, &job.Status, &job.TotalAddresses,
 			&job.ProcessedAddresses, &job.ResponsiveHosts, &job.Error, &job.CreatedAt,
 		); err != nil {
 			return nil, fmt.Errorf("scan discovery job: %w", err)

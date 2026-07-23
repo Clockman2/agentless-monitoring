@@ -65,8 +65,8 @@ func TestAdministratorSetupAndLogoutFlow(t *testing.T) {
 		t.Fatal("dashboard does not contain the authenticated username")
 	}
 	machineForm := url.Values{
-		"csrf_token": {session.CSRFToken}, "name": {"POC Gateway"}, "target": {"192.0.2.20"},
-		"check_type": {"tcp"}, "port": {"443"}, "path": {"/"},
+		"csrf_token": {session.CSRFToken}, "name": {"POC Gateway"}, "target": {"127.0.0.1"},
+		"check_type": {"tcp"}, "port": {"1"}, "path": {"/"},
 	}
 	request = formRequest(http.MethodPost, "/machines", machineForm)
 	request.AddCookie(sessionCookie)
@@ -93,7 +93,7 @@ func TestAdministratorSetupAndLogoutFlow(t *testing.T) {
 	request = httptest.NewRequest(http.MethodGet, "/checks/"+strconv.FormatInt(machinesList[0].CheckID, 10)+"/history", nil)
 	request.AddCookie(sessionCookie)
 	response = serve(app, request)
-	if response.Code != http.StatusOK || !strings.Contains(response.Body.String(), "outside allowed") || !strings.Contains(response.Body.String(), "manual") {
+	if response.Code != http.StatusOK || !strings.Contains(response.Body.String(), "Recent results") || !strings.Contains(response.Body.String(), "manual") {
 		t.Fatalf("check history response = %d", response.Code)
 	}
 
@@ -182,12 +182,27 @@ func TestDiscoveryReviewAndGroupImportFlow(t *testing.T) {
 	}
 
 	request = formRequest(http.MethodPost, "/discovery/scans", url.Values{
-		"csrf_token": {session.CSRFToken}, "target_cidr": {"203.0.113.0/24"},
+		"csrf_token": {session.CSRFToken}, "target": {"203.0.113.0/24"},
 	})
 	request.AddCookie(sessionCookie)
 	response = serve(app, request)
-	if response.Code != http.StatusBadRequest || !strings.Contains(response.Body.String(), "private IPv4 CIDR") {
+	if response.Code != http.StatusBadRequest || !strings.Contains(response.Body.String(), "authorized to scan") {
 		t.Fatalf("public discovery response = %d %q", response.Code, response.Body.String())
+	}
+	jobs, err := app.discoveryStore.ListJobs(context.Background())
+	if err != nil {
+		t.Fatalf("list jobs after unconfirmed scan: %v", err)
+	}
+	if len(jobs) != 0 {
+		t.Fatalf("unconfirmed scan created jobs: %#v", jobs)
+	}
+	request = formRequest(http.MethodPost, "/discovery/scans", url.Values{
+		"csrf_token": {session.CSRFToken}, "target": {"203.0.112.0/23"}, "authorized": {"yes"},
+	})
+	request.AddCookie(sessionCookie)
+	response = serve(app, request)
+	if response.Code != http.StatusBadRequest || !strings.Contains(response.Body.String(), "at most 256 addresses") {
+		t.Fatalf("oversized discovery response = %d %q", response.Code, response.Body.String())
 	}
 
 	job, err := app.discoveryStore.CreateJob(context.Background(), session.User.ID, "192.168.70.10/32", 1)
