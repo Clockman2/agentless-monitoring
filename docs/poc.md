@@ -39,7 +39,7 @@ Select **Machines** or **Add machine** from the dashboard, then enter:
 - A check interval between 10 seconds and 24 hours.
 - The consecutive failure and recovery thresholds.
 
-Public IP targets and hostnames are intentionally rejected in this POC. This prevents the monitoring server from becoming an unrestricted server-side request proxy while approved-network configuration is still under development.
+Literal public and private unicast IP targets are supported. Hostnames remain intentionally unsupported in this POC. HTTP checks disable proxy use, restrict redirects to the same IP and scheme, and apply configured timeouts.
 
 After adding the machine, the scheduler runs the check when it becomes due. **Run now** remains available for immediate diagnostics.
 
@@ -47,9 +47,15 @@ Every execution stores a raw history result with its timestamp, response time, e
 
 A raw failure does not immediately mark a machine critical. The check becomes critical only after its configured number of consecutive failures. A configured number of consecutive successes returns it to healthy. The defaults are three failures and one success.
 
-## Discover local devices and add them to a group
+## Discover network devices and add them to a group
 
-Open **Discovery** in the sidebar. Enter a private or IPv4 link-local CIDR between `/24` and `/32`, such as the local `/24` suggested by the form. Only one discovery job runs at a time, and a job checks at most 256 addresses.
+Open **Discovery** in the sidebar. The target may be:
+
+- One public or private IPv4 address, such as `203.0.113.10`.
+- An IPv4 CIDR from `/24` through `/32`, such as `203.0.113.0/24`.
+- An inclusive IPv4 range containing at most 256 addresses, such as `203.0.113.10-203.0.113.40`.
+
+Before starting each job, confirm that you own the target or have explicit authorization to scan it. Unspecified, multicast, IPv6, malformed, reversed, and oversized targets are rejected. Only one discovery job runs at a time.
 
 The job runs in the background. Its page refreshes while it checks TCP ports 22, 80, 443, 445, 3389, and 8006. A successful connection or an explicit connection refusal identifies a responsive host. This avoids raw-socket and root requirements, but a host that silently drops every probe will not appear.
 
@@ -75,6 +81,6 @@ The database migration and service restart are handled by the existing update wo
 - There is one check per machine in the current form.
 - Incidents, email notifications, editable checks, and maintenance mode are not implemented yet.
 - Scheduling is process-local and uses a bounded worker pool; distributed workers are outside the POC.
-- Discovery is IPv4-only, uses a fixed TCP probe set, and is limited to private or link-local networks no larger than `/24`.
+- Discovery is IPv4-only, uses a fixed TCP probe set, and is limited to 256 addresses per job.
 - HTTPS validates certificates normally; self-signed or mismatched certificates fail the check.
 - Authentication cookies use the `Secure` flag only when `AGENTLESS_MONITORING_SECURE_COOKIES=true`. Enable it when serving the application through HTTPS.

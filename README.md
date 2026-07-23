@@ -2,7 +2,7 @@
 
 A lightweight network discovery and monitoring platform for small and medium-sized infrastructure environments.
 
-The project is being built incrementally. The current proof of concept provides authenticated machine monitoring, scheduled TCP/HTTP/HTTPS checks with thresholded history, bounded local IPv4 discovery, and reviewed import into groups.
+The project is being built incrementally. The current proof of concept provides authenticated machine monitoring, scheduled TCP/HTTP/HTTPS checks with thresholded history, bounded authorized IPv4 discovery across public or private networks, and reviewed import into groups.
 
 ## Run locally
 
