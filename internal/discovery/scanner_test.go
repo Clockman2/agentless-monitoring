@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"net/netip"
+	"slices"
 	"sync"
 	"testing"
 )
@@ -65,16 +66,9 @@ func TestScannerReportsResponsiveAddressesAndOpenPorts(t *testing.T) {
 	inactiveAddress := netip.MustParseAddr("192.168.30.12")
 	scanner := &Scanner{
 		workers: 2,
-		ports:   []uint16{22, 443},
-		probe: func(_ context.Context, address netip.Addr, port uint16) (bool, bool) {
-			switch {
-			case address == openAddress && port == 443:
-				return true, true
-			case address == refusedAddress:
-				return true, false
-			default:
-				return false, false
-			}
+		ports:   []uint16{22, 80, 443},
+		probe: func(_ context.Context, address netip.Addr, port uint16) bool {
+			return address == openAddress && (port == 22 || port == 443)
 		},
 	}
 
@@ -89,13 +83,21 @@ func TestScannerReportsResponsiveAddressesAndOpenPorts(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Scan() error = %v", err)
 	}
-	if !results[openAddress].Responsive || results[openAddress].DetectedPort == nil || *results[openAddress].DetectedPort != 443 {
+	if !results[openAddress].Responsive || !slices.Equal(results[openAddress].OpenPorts, []uint16{22, 443}) {
 		t.Fatalf("open result = %#v", results[openAddress])
 	}
-	if !results[refusedAddress].Responsive || results[refusedAddress].DetectedPort != nil {
+	if results[refusedAddress].Responsive || len(results[refusedAddress].OpenPorts) != 0 {
 		t.Fatalf("refused result = %#v", results[refusedAddress])
 	}
 	if results[inactiveAddress].Responsive {
 		t.Fatalf("inactive result = %#v", results[inactiveAddress])
+	}
+}
+
+func TestCommonTCPPortsIncludeCPanelAndWHM(t *testing.T) {
+	for _, port := range []uint16{2082, 2083, 2086, 2087, 2095, 2096} {
+		if !slices.Contains(commonTCPPorts, port) {
+			t.Errorf("commonTCPPorts does not include %d", port)
+		}
 	}
 }

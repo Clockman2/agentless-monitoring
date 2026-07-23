@@ -9,7 +9,6 @@ import (
 	"slices"
 	"strings"
 	"sync"
-	"syscall"
 	"time"
 )
 
@@ -22,7 +21,10 @@ const (
 
 var ErrInvalidTarget = errors.New("discovery target must be a single IPv4 address, an IPv4 CIDR of /24 or smaller, or an inclusive IPv4 range containing at most 256 addresses")
 
-var commonTCPPorts = []uint16{22, 80, 443, 445, 3389, 8006}
+var commonTCPPorts = []uint16{
+	21, 22, 25, 53, 80, 110, 143, 443, 445, 465, 587, 993, 995,
+	2082, 2083, 2086, 2087, 2095, 2096, 3306, 3389, 8006, 8080, 8443,
+}
 
 type Target struct {
 	Canonical string
@@ -30,12 +32,12 @@ type Target struct {
 }
 
 type Result struct {
-	Address      netip.Addr
-	Responsive   bool
-	DetectedPort *uint16
+	Address    netip.Addr
+	Responsive bool
+	OpenPorts  []uint16
 }
 
-type ProbeFunc func(context.Context, netip.Addr, uint16) (reachable bool, open bool)
+type ProbeFunc func(context.Context, netip.Addr, uint16) bool
 
 type Scanner struct {
 	probe   ProbeFunc
@@ -224,14 +226,9 @@ func (s *Scanner) Scan(ctx context.Context, addresses []netip.Addr, consume func
 func (s *Scanner) probeAddress(ctx context.Context, address netip.Addr) Result {
 	result := Result{Address: address}
 	for _, port := range s.ports {
-		reachable, open := s.probe(ctx, address, port)
-		if reachable {
+		if s.probe(ctx, address, port) {
 			result.Responsive = true
-		}
-		if open {
-			value := port
-			result.DetectedPort = &value
-			return result
+			result.OpenPorts = append(result.OpenPorts, port)
 		}
 		if ctx.Err() != nil {
 			return result
@@ -240,17 +237,14 @@ func (s *Scanner) probeAddress(ctx context.Context, address netip.Addr) Result {
 	return result
 }
 
-func tcpProbe(ctx context.Context, address netip.Addr, port uint16) (bool, bool) {
+func tcpProbe(ctx context.Context, address netip.Addr, port uint16) bool {
 	probeCtx, cancel := context.WithTimeout(ctx, probeTimeout)
 	defer cancel()
 
 	connection, err := (&net.Dialer{}).DialContext(probeCtx, "tcp", net.JoinHostPort(address.String(), fmt.Sprint(port)))
 	if err == nil {
 		_ = connection.Close()
-		return true, true
+		return true
 	}
-	if errors.Is(err, syscall.ECONNREFUSED) {
-		return true, false
-	}
-	return false, false
+	return false
 }

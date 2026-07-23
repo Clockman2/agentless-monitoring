@@ -37,8 +37,8 @@ func TestServiceCompletesBackgroundScan(t *testing.T) {
 	service.scanner = &Scanner{
 		workers: 2,
 		ports:   []uint16{443},
-		probe: func(context.Context, netip.Addr, uint16) (bool, bool) {
-			return false, false
+		probe: func(context.Context, netip.Addr, uint16) bool {
+			return false
 		},
 	}
 	job, err := service.Start(ctx, user.ID, "192.168.40.0/30")

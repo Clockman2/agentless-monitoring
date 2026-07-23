@@ -29,8 +29,7 @@ func TestDiscoveryLifecycleAndImport(t *testing.T) {
 	if err := store.MarkRunning(ctx, job.ID); err != nil {
 		t.Fatalf("MarkRunning() error = %v", err)
 	}
-	port := uint16(443)
-	if err := store.RecordProbe(ctx, job.ID, "192.168.50.1", &port); err != nil {
+	if err := store.RecordProbe(ctx, job.ID, "192.168.50.1", []uint16{2083, 22, 443, 2083}); err != nil {
 		t.Fatalf("RecordProbe(active) error = %v", err)
 	}
 	if err := store.RecordProbe(ctx, job.ID, "", nil); err != nil {
@@ -51,7 +50,8 @@ func TestDiscoveryLifecycleAndImport(t *testing.T) {
 	if err != nil {
 		t.Fatalf("ListDevices() error = %v", err)
 	}
-	if len(devices) != 1 || devices[0].DetectedPort == nil || *devices[0].DetectedPort != 443 {
+	if len(devices) != 1 || devices[0].DetectedPort == nil || *devices[0].DetectedPort != 443 ||
+		devices[0].OpenPortsText != "22, 443, 2083" {
 		t.Fatalf("devices = %#v", devices)
 	}
 

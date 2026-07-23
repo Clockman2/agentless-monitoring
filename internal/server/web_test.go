@@ -251,8 +251,7 @@ func TestDiscoveryReviewAndGroupImportFlow(t *testing.T) {
 	if err := app.discoveryStore.MarkRunning(context.Background(), job.ID); err != nil {
 		t.Fatalf("mark discovery running: %v", err)
 	}
-	port := uint16(443)
-	if err := app.discoveryStore.RecordProbe(context.Background(), job.ID, "192.168.70.10", &port); err != nil {
+	if err := app.discoveryStore.RecordProbe(context.Background(), job.ID, "192.168.70.10", []uint16{22, 443, 2083}); err != nil {
 		t.Fatalf("record discovered device: %v", err)
 	}
 	if err := app.discoveryStore.Complete(context.Background(), job.ID); err != nil {
@@ -266,7 +265,8 @@ func TestDiscoveryReviewAndGroupImportFlow(t *testing.T) {
 	request = httptest.NewRequest(http.MethodGet, "/discovery?job="+strconv.FormatInt(job.ID, 10), nil)
 	request.AddCookie(sessionCookie)
 	response = serve(app, request)
-	if response.Code != http.StatusOK || !strings.Contains(response.Body.String(), "192.168.70.10") {
+	if response.Code != http.StatusOK || !strings.Contains(response.Body.String(), "192.168.70.10") ||
+		!strings.Contains(response.Body.String(), "22, 443, 2083") {
 		t.Fatalf("discovery page response = %d", response.Code)
 	}
 

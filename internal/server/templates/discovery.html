@@ -50,7 +50,7 @@
           <button type="submit" {{if .DiscoveryRunning}}disabled{{end}}>Start discovery</button>
           <label class="authorization-check"><input type="checkbox" name="authorized" value="yes" required> I confirm that I own this target or have explicit authorization to scan it.</label>
         </form>
-        <p class="form-note">Public and private unicast IPv4 targets are supported. Detection checks common TCP ports without credentials; hosts that drop every probe may not appear.</p>
+        <p class="form-note">Public and private unicast IPv4 targets are supported. Detection checks common TCP and cPanel service ports without credentials; hosts that drop every probe may not appear.</p>
       </section>
 
       <section class="panel">
@@ -69,16 +69,16 @@
 
       {{if .DiscoveryJob}}
       <section class="panel">
-        <div class="panel-header"><div><h2>Results for <span class="mono">{{.DiscoveryJob.Target}}</span></h2><p>{{.DiscoveryJob.ResponsiveHosts}} responsive of {{.DiscoveryJob.ProcessedAddresses}} checked.</p></div><span class="status-label {{.DiscoveryJob.Status}}">{{.DiscoveryJob.Status}}</span></div>
+        <div class="panel-header"><div><h2>Results for <span class="mono">{{.DiscoveryJob.Target}}</span></h2><p>{{.DiscoveryJob.ResponsiveHosts}} addresses accepted a TCP connection of {{.DiscoveryJob.ProcessedAddresses}} checked.</p></div><span class="status-label {{.DiscoveryJob.Status}}">{{.DiscoveryJob.Status}}</span></div>
         {{if .DiscoveryJob.Error}}<div class="alert alert-error">{{.DiscoveryJob.Error}}</div>{{end}}
         {{if .DiscoveredDevices}}
         <form method="post" action="/discovery/jobs/{{.DiscoveryJob.ID}}/import">
           <input type="hidden" name="csrf_token" value="{{.CSRFToken}}">
           <table>
-            <thead><tr><th>Select</th><th>IP address</th><th>Detected port</th><th>State</th></tr></thead>
+            <thead><tr><th>Select</th><th>IP address</th><th>Open ports (TCP accepted)</th><th>State</th></tr></thead>
             <tbody>{{range .DiscoveredDevices}}<tr>
               <td>{{if eq .Status "new"}}<input class="row-check" type="checkbox" name="device_id" value="{{.ID}}" aria-label="Select {{.Address}}">{{else}}—{{end}}</td>
-              <td class="mono">{{.Address}}</td><td>{{if .DetectedPort}}{{.DetectedPort}}{{else}}Reachable; no open common port{{end}}</td><td>{{.Status}}</td>
+              <td class="mono">{{.Address}}</td><td>{{.OpenPortsText}}</td><td>{{.Status}}</td>
             </tr>{{end}}</tbody>
           </table>
           <div class="import-bar">
@@ -90,7 +90,7 @@
           </div>
         </form>
         {{else if .DiscoveryRunning}}<div class="empty-state"><strong>Scan in progress</strong><p>This page refreshes automatically while addresses are checked.</p></div>
-        {{else}}<div class="empty-state"><strong>No responsive devices found</strong><p>Some devices may ignore TCP probes even when they are online.</p></div>{{end}}
+        {{else}}<div class="empty-state"><strong>No open services found</strong><p>Some devices may ignore TCP probes even when they are online.</p></div>{{end}}
       </section>
       {{end}}
 

@@ -6,6 +6,7 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"slices"
 	"strconv"
 	"strings"
 	"time"
@@ -38,13 +39,15 @@ type Job struct {
 }
 
 type Device struct {
-	ID           int64
-	JobID        int64
-	Address      string
-	DetectedPort *uint16
-	Status       string
-	MachineID    *int64
-	DiscoveredAt string
+	ID            int64
+	JobID         int64
+	Address       string
+	DetectedPort  *uint16
+	OpenPorts     []uint16
+	OpenPortsText string
+	Status        string
+	MachineID     *int64
+	DiscoveredAt  string
 }
 
 type Group struct {
@@ -122,7 +125,7 @@ func (s *Store) MarkRunning(ctx context.Context, id int64) error {
 	return s.updateJobStatus(ctx, id, JobRunning, "", "started_at = CURRENT_TIMESTAMP")
 }
 
-func (s *Store) RecordProbe(ctx context.Context, jobID int64, address string, detectedPort *uint16) error {
+func (s *Store) RecordProbe(ctx context.Context, jobID int64, address string, openPorts []uint16) error {
 	tx, err := s.db.BeginTx(ctx, nil)
 	if err != nil {
 		return fmt.Errorf("begin discovery result: %w", err)
@@ -132,16 +135,30 @@ func (s *Store) RecordProbe(ctx context.Context, jobID int64, address string, de
 	responsive := 0
 	if address != "" {
 		responsive = 1
-		var port any
-		if detectedPort != nil {
-			port = int(*detectedPort)
+		ports := normalizedPorts(openPorts)
+		var primaryPort any
+		if port, ok := preferredPort(ports); ok {
+			primaryPort = int(port)
 		}
-		if _, err := tx.ExecContext(ctx, `
+		var deviceID int64
+		err := tx.QueryRowContext(ctx, `
 			INSERT INTO discovered_devices (job_id, address, detected_port)
 			VALUES (?, ?, ?)
 			ON CONFLICT(job_id, address) DO UPDATE SET detected_port = excluded.detected_port
-		`, jobID, address, port); err != nil {
+			RETURNING id
+		`, jobID, address, primaryPort).Scan(&deviceID)
+		if err != nil {
 			return fmt.Errorf("record discovered device: %w", err)
+		}
+		if _, err := tx.ExecContext(ctx, "DELETE FROM discovered_device_ports WHERE device_id = ?", deviceID); err != nil {
+			return fmt.Errorf("replace discovered ports: %w", err)
+		}
+		for _, port := range ports {
+			if _, err := tx.ExecContext(ctx, `
+				INSERT INTO discovered_device_ports (device_id, port) VALUES (?, ?)
+			`, deviceID, int(port)); err != nil {
+				return fmt.Errorf("record discovered port: %w", err)
+			}
 		}
 	}
 	result, err := tx.ExecContext(ctx, `
@@ -196,8 +213,14 @@ func (s *Store) updateJobStatus(ctx context.Context, id int64, status JobStatus,
 
 func (s *Store) ListDevices(ctx context.Context, jobID int64) ([]Device, error) {
 	rows, err := s.db.QueryContext(ctx, `
-		SELECT id, job_id, address, detected_port, status, machine_id, discovered_at
-		FROM discovered_devices WHERE job_id = ? ORDER BY address
+		SELECT devices.id, devices.job_id, devices.address, devices.detected_port,
+		       devices.status, devices.machine_id, devices.discovered_at,
+		       COALESCE(group_concat(ports.port), '')
+		FROM discovered_devices AS devices
+		LEFT JOIN discovered_device_ports AS ports ON ports.device_id = devices.id
+		WHERE devices.job_id = ?
+		GROUP BY devices.id
+		ORDER BY devices.address
 	`, jobID)
 	if err != nil {
 		return nil, fmt.Errorf("list discovered devices: %w", err)
@@ -208,9 +231,10 @@ func (s *Store) ListDevices(ctx context.Context, jobID int64) ([]Device, error) 
 	for rows.Next() {
 		var device Device
 		var port, machineID sql.NullInt64
+		var openPorts string
 		if err := rows.Scan(
 			&device.ID, &device.JobID, &device.Address, &port,
-			&device.Status, &machineID, &device.DiscoveredAt,
+			&device.Status, &machineID, &device.DiscoveredAt, &openPorts,
 		); err != nil {
 			return nil, fmt.Errorf("scan discovered device: %w", err)
 		}
@@ -222,6 +246,8 @@ func (s *Store) ListDevices(ctx context.Context, jobID int64) ([]Device, error) 
 			value := machineID.Int64
 			device.MachineID = &value
 		}
+		device.OpenPorts = parsePorts(openPorts)
+		device.OpenPortsText = formatPorts(device.OpenPorts)
 		devices = append(devices, device)
 	}
 	if err := rows.Err(); err != nil {
@@ -343,6 +369,52 @@ func uniquePositiveIDs(ids []int64) []int64 {
 		result = append(result, id)
 	}
 	return result
+}
+
+func normalizedPorts(ports []uint16) []uint16 {
+	unique := make(map[uint16]struct{}, len(ports))
+	for _, port := range ports {
+		if port != 0 {
+			unique[port] = struct{}{}
+		}
+	}
+	result := make([]uint16, 0, len(unique))
+	for port := range unique {
+		result = append(result, port)
+	}
+	slices.Sort(result)
+	return result
+}
+
+func preferredPort(ports []uint16) (uint16, bool) {
+	for _, preferred := range []uint16{443, 80, 22} {
+		if slices.Contains(ports, preferred) {
+			return preferred, true
+		}
+	}
+	if len(ports) == 0 {
+		return 0, false
+	}
+	return ports[0], true
+}
+
+func parsePorts(value string) []uint16 {
+	var ports []uint16
+	for _, field := range strings.Split(value, ",") {
+		port, err := strconv.ParseUint(field, 10, 16)
+		if err == nil && port != 0 {
+			ports = append(ports, uint16(port))
+		}
+	}
+	return normalizedPorts(ports)
+}
+
+func formatPorts(ports []uint16) string {
+	values := make([]string, 0, len(ports))
+	for _, port := range ports {
+		values = append(values, strconv.FormatUint(uint64(port), 10))
+	}
+	return strings.Join(values, ", ")
 }
 
 func checkForDetectedPort(port sql.NullInt64) (string, int) {
