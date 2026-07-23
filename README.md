@@ -43,8 +43,13 @@ run from a terminal, creates the initial administrator, and exits.
 
 ```sh
 go test ./...
+go test -race ./...
 go vet ./...
+go run golang.org/x/vuln/cmd/govulncheck@v1.6.0 ./...
 ```
+
+GitHub Actions repeats these checks, scans changes for potential secrets, and runs CodeQL.
+Dependabot groups weekly Go-module and workflow-action updates for review.
 
 ## Ubuntu installation
 
