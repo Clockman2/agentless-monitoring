@@ -17,15 +17,25 @@ The first proof of concept supports scheduled monitoring and reviewed local disc
 sudo /opt/agentless-monitoring-src/scripts/update-ubuntu.sh
 ```
 
+For a fresh installation, create the initial administrator from the Ubuntu terminal:
+
+```sh
+sudo -u agentless-monitoring /usr/local/bin/agentless-monitoring \
+  -database /var/lib/agentless-monitoring/agentless-monitoring.db \
+  -create-admin -username admin
+```
+
+The command prompts twice for a unique password containing at least 12 characters. It does not
+accept a password as a command-line argument.
+
 The service listens on loopback by default. From another computer, create an SSH tunnel:
 
 ```sh
 ssh -L 8080:127.0.0.1:8080 ubuntu@SERVER_IP
 ```
 
-Open `http://127.0.0.1:8080/` locally. The first visit redirects to the administrator setup form.
-
-Use a unique test password containing at least 12 characters. No default credentials are created or stored in the repository.
+Open `http://127.0.0.1:8080/` locally and sign in. No default credentials are created or stored
+in the repository. Browser-based first-user setup is disabled by default.
 
 ## Add a monitored machine
 

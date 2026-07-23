@@ -14,6 +14,7 @@ const (
 	listenAddressEnv         = "AGENTLESS_MONITORING_LISTEN_ADDRESS"
 	databasePathEnv          = "AGENTLESS_MONITORING_DATABASE_PATH"
 	secureCookiesEnv         = "AGENTLESS_MONITORING_SECURE_COOKIES"
+	allowWebSetupEnv         = "AGENTLESS_MONITORING_ALLOW_WEB_SETUP"
 	shutdownTimeoutEnv       = "AGENTLESS_MONITORING_SHUTDOWN_TIMEOUT"
 	monitoringWorkersEnv     = "AGENTLESS_MONITORING_WORKERS"
 	schedulerPollIntervalEnv = "AGENTLESS_MONITORING_POLL_INTERVAL"
@@ -32,6 +33,7 @@ type Config struct {
 	ListenAddress         string
 	DatabasePath          string
 	SecureCookies         bool
+	AllowWebSetup         bool
 	ShutdownTimeout       time.Duration
 	MonitoringWorkers     int
 	SchedulerPollInterval time.Duration
@@ -89,6 +91,13 @@ func load(lookupEnv func(string) (string, bool)) (Config, error) {
 			return Config{}, fmt.Errorf("%s must be true or false", secureCookiesEnv)
 		}
 		cfg.SecureCookies = secureCookies
+	}
+	if value, ok := lookupEnv(allowWebSetupEnv); ok {
+		allowWebSetup, err := strconv.ParseBool(value)
+		if err != nil {
+			return Config{}, fmt.Errorf("%s must be true or false", allowWebSetupEnv)
+		}
+		cfg.AllowWebSetup = allowWebSetup
 	}
 	if value, ok := lookupEnv(shutdownTimeoutEnv); ok {
 		duration, err := time.ParseDuration(value)

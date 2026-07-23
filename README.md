@@ -9,6 +9,7 @@ The project is being built incrementally. The current proof of concept provides 
 Go 1.24 or newer is required.
 
 ```sh
+go run ./cmd/agentless-monitoring -create-admin -username admin
 go run ./cmd/agentless-monitoring
 ```
 
@@ -27,11 +28,14 @@ Runtime settings can also be supplied through environment variables:
 | `AGENTLESS_MONITORING_LISTEN_ADDRESS` | `127.0.0.1:8080` | HTTP bind address; use an explicit IP and port |
 | `AGENTLESS_MONITORING_DATABASE_PATH` | `data/agentless-monitoring.db` | SQLite database file |
 | `AGENTLESS_MONITORING_SECURE_COOKIES` | `false` | Require HTTPS when browsers send authentication cookies |
+| `AGENTLESS_MONITORING_ALLOW_WEB_SETUP` | `false` | Temporarily permit first-user creation in the browser; local CLI bootstrap is preferred |
 | `AGENTLESS_MONITORING_SHUTDOWN_TIMEOUT` | `10s` | Graceful shutdown deadline, up to five minutes |
 | `AGENTLESS_MONITORING_WORKERS` | `4` | Concurrent scheduled-check workers, from 1 to 64 |
 | `AGENTLESS_MONITORING_POLL_INTERVAL` | `2s` | How often the scheduler looks for due checks, from 500ms to one minute |
 
-Command-line `-listen` takes precedence over the listen-address environment variable.
+Command-line `-listen` and `-database` take precedence over their environment variables. The
+`-create-admin -username NAME` mode reads and confirms the password without echoing it when
+run from a terminal, creates the initial administrator, and exits.
 
 ## Development checks
 

@@ -25,6 +25,7 @@ type Server struct {
 	httpServer     *http.Server
 	authStore      *auth.Store
 	secureCookies  bool
+	allowWebSetup  bool
 	version        string
 	logger         *slog.Logger
 	loginLimiter   *loginLimiter
@@ -47,6 +48,7 @@ type Options struct {
 	Discovery      *discovery.Service
 	Scheduler      *monitoring.Scheduler
 	SecureCookies  bool
+	AllowWebSetup  bool
 }
 
 // New creates a server with conservative timeouts and the application's routes.
@@ -54,6 +56,7 @@ func New(options Options) *Server {
 	server := &Server{
 		authStore:      options.AuthStore,
 		secureCookies:  options.SecureCookies,
+		allowWebSetup:  options.AllowWebSetup,
 		version:        options.Version,
 		logger:         options.Logger,
 		loginLimiter:   newLoginLimiter(),

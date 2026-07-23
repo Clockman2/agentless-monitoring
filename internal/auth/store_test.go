@@ -71,5 +71,8 @@ func newTestStore(t *testing.T) (*Store, *sql.DB) {
 		t.Fatalf("open database: %v", err)
 	}
 	t.Cleanup(func() { _ = db.Close() })
-	return &Store{db: db, now: time.Now, passwordParams: testPasswordParams}, db
+	return &Store{
+		db: db, now: time.Now, passwordParams: testPasswordParams,
+		passwordSlots: make(chan struct{}, maximumConcurrentPasswordOperations),
+	}, db
 }

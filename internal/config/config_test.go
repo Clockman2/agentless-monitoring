@@ -31,6 +31,7 @@ func TestLoadOverrides(t *testing.T) {
 		listenAddressEnv:         "0.0.0.0:9090",
 		databasePathEnv:          "testdata/monitoring.db",
 		secureCookiesEnv:         "true",
+		allowWebSetupEnv:         "true",
 		shutdownTimeoutEnv:       "30s",
 		monitoringWorkersEnv:     "8",
 		schedulerPollIntervalEnv: "5s",
@@ -51,6 +52,9 @@ func TestLoadOverrides(t *testing.T) {
 	}
 	if !cfg.SecureCookies {
 		t.Error("SecureCookies = false, want true")
+	}
+	if !cfg.AllowWebSetup {
+		t.Error("AllowWebSetup = false, want true")
 	}
 	if cfg.ShutdownTimeout != 30*time.Second {
 		t.Errorf("ShutdownTimeout = %s, want 30s", cfg.ShutdownTimeout)
@@ -90,6 +94,11 @@ func TestLoadRejectsInvalidEnvironment(t *testing.T) {
 			name:    "invalid secure cookie setting",
 			values:  map[string]string{secureCookiesEnv: "sometimes"},
 			wantErr: secureCookiesEnv,
+		},
+		{
+			name:    "invalid web setup setting",
+			values:  map[string]string{allowWebSetupEnv: "sometimes"},
+			wantErr: allowWebSetupEnv,
 		},
 		{
 			name:    "empty database path",

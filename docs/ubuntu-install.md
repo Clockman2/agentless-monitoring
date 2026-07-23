@@ -9,6 +9,9 @@ sudo apt-get update
 sudo apt-get install -y --no-install-recommends ca-certificates curl git
 sudo git clone --branch main --single-branch https://github.com/Clockman2/agentless-monitoring.git /opt/agentless-monitoring-src
 sudo /opt/agentless-monitoring-src/scripts/install-ubuntu.sh
+sudo -u agentless-monitoring /usr/local/bin/agentless-monitoring \
+  -database /var/lib/agentless-monitoring/agentless-monitoring.db \
+  -create-admin -username admin
 sudo systemctl status agentless-monitoring.service --no-pager
 curl --fail http://127.0.0.1:8080/healthz
 ```
@@ -21,6 +24,9 @@ The installer:
 - Stores application data in `/var/lib/agentless-monitoring`.
 - Stores runtime settings in `/etc/default/agentless-monitoring`.
 - Installs and starts a hardened systemd service.
+
+The administrator command prompts for the password twice and does not place it in shell history
+or the process argument list. Browser-based initial setup is disabled by default.
 
 The service listens only on `127.0.0.1:8080` by default. Use an SSH tunnel for remote testing:
 

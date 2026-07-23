@@ -155,6 +155,10 @@ func (s *Server) rootHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if !initialized {
+		if !s.allowWebSetup {
+			http.Error(w, "administrator account is not initialized; use the local administrator bootstrap command", http.StatusServiceUnavailable)
+			return
+		}
 		http.Redirect(w, r, "/setup", http.StatusSeeOther)
 		return
 	}
@@ -166,6 +170,10 @@ func (s *Server) rootHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) setupPage(w http.ResponseWriter, r *http.Request) {
+	if !s.allowWebSetup {
+		http.NotFound(w, r)
+		return
+	}
 	initialized, err := s.authStore.Initialized(r.Context())
 	if err != nil {
 		s.internalError(w, r, err)
@@ -179,6 +187,10 @@ func (s *Server) setupPage(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) setupSubmit(w http.ResponseWriter, r *http.Request) {
+	if !s.allowWebSetup {
+		http.NotFound(w, r)
+		return
+	}
 	if !s.parseForm(w, r) || !s.validateFormCSRF(r) {
 		http.Error(w, "invalid form token", http.StatusForbidden)
 		return
@@ -219,6 +231,10 @@ func (s *Server) loginPage(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if !initialized {
+		if !s.allowWebSetup {
+			http.Error(w, "administrator account is not initialized; use the local administrator bootstrap command", http.StatusServiceUnavailable)
+			return
+		}
 		http.Redirect(w, r, "/setup", http.StatusSeeOther)
 		return
 	}

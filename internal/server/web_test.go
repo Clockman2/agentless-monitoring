@@ -144,6 +144,20 @@ func TestLoginRejectsInvalidCSRF(t *testing.T) {
 	}
 }
 
+func TestWebSetupDisabledByDefault(t *testing.T) {
+	app, _ := newWebTestServer(t, false)
+	app.allowWebSetup = false
+
+	response := serveRequest(app, http.MethodGet, "/setup", nil)
+	if response.Code != http.StatusNotFound {
+		t.Fatalf("setup status = %d, want 404", response.Code)
+	}
+	response = serveRequest(app, http.MethodGet, "/", nil)
+	if response.Code != http.StatusServiceUnavailable {
+		t.Fatalf("root status = %d, want 503", response.Code)
+	}
+}
+
 func TestUnknownRouteDoesNotRotateSetupCSRF(t *testing.T) {
 	app, _ := newWebTestServer(t, false)
 	response := serveRequest(app, http.MethodGet, "/setup", nil)
@@ -268,6 +282,7 @@ func newWebTestServer(t *testing.T, secureCookies bool) (*Server, *auth.Store) {
 		DiscoveryStore: discoveryStore,
 		Discovery:      discovery.NewService(context.Background(), discoveryStore, logger),
 		SecureCookies:  secureCookies,
+		AllowWebSetup:  true,
 	})
 	return app, authStore
 }

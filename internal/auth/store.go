@@ -13,7 +13,8 @@ import (
 )
 
 const (
-	AdministratorRole = "administrator"
+	AdministratorRole                   = "administrator"
+	maximumConcurrentPasswordOperations = 2
 )
 
 var (
@@ -36,6 +37,7 @@ type Store struct {
 	db             *sql.DB
 	now            func() time.Time
 	passwordParams passwordParams
+	passwordSlots  chan struct{}
 }
 
 // NewStore creates an authentication store backed by the application database.
@@ -44,6 +46,7 @@ func NewStore(db *sql.DB) *Store {
 		db:             db,
 		now:            time.Now,
 		passwordParams: productionPasswordParams,
+		passwordSlots:  make(chan struct{}, maximumConcurrentPasswordOperations),
 	}
 }
 
@@ -74,7 +77,11 @@ func (s *Store) CreateAdministrator(ctx context.Context, username, password stri
 		return User{}, err
 	}
 
+	if err := s.acquirePasswordSlot(ctx); err != nil {
+		return User{}, err
+	}
 	passwordHash, err := hashPassword(password, s.passwordParams)
+	s.releasePasswordSlot()
 	if err != nil {
 		return User{}, err
 	}
@@ -118,7 +125,11 @@ func (s *Store) CreateAdministrator(ctx context.Context, username, password stri
 func (s *Store) Authenticate(ctx context.Context, username, password string) (User, error) {
 	username = strings.TrimSpace(username)
 	if !usernamePattern.MatchString(username) || len(password) > maximumPasswordBytes {
+		if err := s.acquirePasswordSlot(ctx); err != nil {
+			return User{}, err
+		}
 		burnPasswordAttempt(password, s.passwordParams)
+		s.releasePasswordSlot()
 		if err := s.recordLogin(ctx, nil, "failure"); err != nil {
 			return User{}, err
 		}
@@ -133,7 +144,11 @@ func (s *Store) Authenticate(ctx context.Context, username, password string) (Us
 		WHERE username = ? AND active = 1
 	`, username).Scan(&user.ID, &user.Username, &user.Role, &passwordHash)
 	if errors.Is(err, sql.ErrNoRows) {
+		if err := s.acquirePasswordSlot(ctx); err != nil {
+			return User{}, err
+		}
 		burnPasswordAttempt(password, s.passwordParams)
+		s.releasePasswordSlot()
 		if err := s.recordLogin(ctx, nil, "failure"); err != nil {
 			return User{}, err
 		}
@@ -143,7 +158,11 @@ func (s *Store) Authenticate(ctx context.Context, username, password string) (Us
 		return User{}, fmt.Errorf("read user credentials: %w", err)
 	}
 
+	if err := s.acquirePasswordSlot(ctx); err != nil {
+		return User{}, err
+	}
 	valid, err := verifyPassword(password, passwordHash)
+	s.releasePasswordSlot()
 	if err != nil {
 		return User{}, fmt.Errorf("verify stored password hash: %w", err)
 	}
@@ -157,6 +176,19 @@ func (s *Store) Authenticate(ctx context.Context, username, password string) (Us
 		return User{}, err
 	}
 	return user, nil
+}
+
+func (s *Store) acquirePasswordSlot(ctx context.Context) error {
+	select {
+	case s.passwordSlots <- struct{}{}:
+		return nil
+	case <-ctx.Done():
+		return fmt.Errorf("wait for password operation: %w", ctx.Err())
+	}
+}
+
+func (s *Store) releasePasswordSlot() {
+	<-s.passwordSlots
 }
 
 func (s *Store) userByID(ctx context.Context, userID int64) (User, error) {
