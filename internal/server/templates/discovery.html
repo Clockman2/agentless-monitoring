@@ -6,6 +6,7 @@
   {{if .DiscoveryRunning}}<meta http-equiv="refresh" content="2">{{end}}
   <title>{{.Title}} · Agentless Monitoring</title>
   <link rel="stylesheet" href="/assets/app.css">
+  <script defer src="/assets/discovery.js"></script>
 </head>
 <body>
   <aside class="sidebar">
@@ -40,7 +41,7 @@
       {{if .Message}}<div class="alert alert-success" role="status">{{.Message}}</div>{{end}}
 
       <section class="panel">
-        <div class="panel-header"><div><h2>Start an authorized network scan</h2><p>Enter one IPv4 address, a CIDR no larger than /24, or an inclusive range of up to 256 addresses.</p></div></div>
+        <div class="panel-header"><div><h2>Start a network scan</h2><p>Enter one IPv4 address, a CIDR no larger than /24, or an inclusive range of up to 256 addresses.</p></div></div>
         <form method="post" action="/discovery/scans" class="inline-form">
           <input type="hidden" name="csrf_token" value="{{.CSRFToken}}">
           <label>IP address, CIDR, or range
@@ -48,9 +49,8 @@
             <datalist id="local-cidrs">{{range .SuggestedCIDRs}}<option value="{{.}}">{{end}}</datalist>
           </label>
           <button type="submit" {{if .DiscoveryRunning}}disabled{{end}}>Start discovery</button>
-          <label class="authorization-check"><input type="checkbox" name="authorized" value="yes" required> I confirm that I own this target or have explicit authorization to scan it.</label>
         </form>
-        <p class="form-note">Public and private unicast IPv4 targets are supported. Detection checks common TCP and cPanel service ports without credentials; hosts that drop every probe may not appear.</p>
+        <p class="form-note">Only scan targets you own or are authorized to assess. Public and private unicast IPv4 targets are supported. Detection checks common TCP and cPanel service ports without credentials; hosts that drop every probe may not appear.</p>
       </section>
 
       <section class="panel">
@@ -74,11 +74,14 @@
         {{if .DiscoveredDevices}}
         <form method="post" action="/discovery/jobs/{{.DiscoveryJob.ID}}/import">
           <input type="hidden" name="csrf_token" value="{{.CSRFToken}}">
+          <div class="selection-toolbar">
+            <button class="button-secondary" type="button" data-select-all-devices aria-pressed="false">Select all</button>
+          </div>
           <table>
-            <thead><tr><th>Select</th><th>IP address</th><th>Open ports (TCP accepted)</th><th>State</th></tr></thead>
+            <thead><tr><th>Select</th><th>IP address</th><th>Open ports (TCP accepted)</th><th>Machine type guess</th><th>State</th></tr></thead>
             <tbody>{{range .DiscoveredDevices}}<tr>
               <td>{{if eq .Status "new"}}<input class="row-check" type="checkbox" name="device_id" value="{{.ID}}" aria-label="Select {{.Address}}">{{else}}—{{end}}</td>
-              <td class="mono">{{.Address}}</td><td>{{.OpenPortsText}}</td><td>{{.Status}}</td>
+              <td class="mono">{{.Address}}</td><td>{{.OpenPortsText}}</td><td>{{.GuessedType}}</td><td>{{.Status}}</td>
             </tr>{{end}}</tbody>
           </table>
           <div class="import-bar">

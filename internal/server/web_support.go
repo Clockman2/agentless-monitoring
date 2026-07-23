@@ -27,7 +27,7 @@ const (
 	formCSRFDuration        = 10 * time.Minute
 )
 
-//go:embed templates/*.html assets/*.css
+//go:embed templates/*.html assets/*.css assets/*.js
 var webFiles embed.FS
 
 var pageTemplates = map[string]*template.Template{
@@ -107,6 +107,17 @@ func (s *Server) stylesheet(w http.ResponseWriter, _ *http.Request) {
 	}
 	w.Header().Set("Cache-Control", "public, max-age=3600")
 	w.Header().Set("Content-Type", "text/css; charset=utf-8")
+	_, _ = w.Write(contents)
+}
+
+func (s *Server) discoveryScript(w http.ResponseWriter, _ *http.Request) {
+	contents, err := webFiles.ReadFile("assets/discovery.js")
+	if err != nil {
+		http.Error(w, "asset unavailable", http.StatusInternalServerError)
+		return
+	}
+	w.Header().Set("Cache-Control", "public, max-age=3600")
+	w.Header().Set("Content-Type", "text/javascript; charset=utf-8")
 	_, _ = w.Write(contents)
 }
 

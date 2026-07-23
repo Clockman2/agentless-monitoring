@@ -220,23 +220,21 @@ func TestDiscoveryReviewAndGroupImportFlow(t *testing.T) {
 		t.Fatalf("resolve session: %v", err)
 	}
 
-	request = formRequest(http.MethodPost, "/discovery/scans", url.Values{
-		"csrf_token": {session.CSRFToken}, "target": {"203.0.113.0/24"},
-	})
+	request = httptest.NewRequest(http.MethodGet, "/discovery", nil)
 	request.AddCookie(sessionCookie)
 	response = serve(app, request)
-	if response.Code != http.StatusBadRequest || !strings.Contains(response.Body.String(), "authorized to scan") {
-		t.Fatalf("public discovery response = %d %q", response.Code, response.Body.String())
+	if response.Code != http.StatusOK || strings.Contains(response.Body.String(), `name="authorized"`) {
+		t.Fatalf("discovery form response = %d %q", response.Code, response.Body.String())
 	}
 	jobs, err := app.discoveryStore.ListJobs(context.Background())
 	if err != nil {
-		t.Fatalf("list jobs after unconfirmed scan: %v", err)
+		t.Fatalf("list jobs before scan: %v", err)
 	}
 	if len(jobs) != 0 {
-		t.Fatalf("unconfirmed scan created jobs: %#v", jobs)
+		t.Fatalf("discovery page created jobs: %#v", jobs)
 	}
 	request = formRequest(http.MethodPost, "/discovery/scans", url.Values{
-		"csrf_token": {session.CSRFToken}, "target": {"203.0.112.0/23"}, "authorized": {"yes"},
+		"csrf_token": {session.CSRFToken}, "target": {"203.0.112.0/23"},
 	})
 	request.AddCookie(sessionCookie)
 	response = serve(app, request)
@@ -266,7 +264,9 @@ func TestDiscoveryReviewAndGroupImportFlow(t *testing.T) {
 	request.AddCookie(sessionCookie)
 	response = serve(app, request)
 	if response.Code != http.StatusOK || !strings.Contains(response.Body.String(), "192.168.70.10") ||
-		!strings.Contains(response.Body.String(), "22, 443, 2083") {
+		!strings.Contains(response.Body.String(), "22, 443, 2083") ||
+		!strings.Contains(response.Body.String(), "cPanel/WHM server") ||
+		!strings.Contains(response.Body.String(), "data-select-all-devices") {
 		t.Fatalf("discovery page response = %d", response.Code)
 	}
 

@@ -51,7 +51,7 @@ func TestDiscoveryLifecycleAndImport(t *testing.T) {
 		t.Fatalf("ListDevices() error = %v", err)
 	}
 	if len(devices) != 1 || devices[0].DetectedPort == nil || *devices[0].DetectedPort != 443 ||
-		devices[0].OpenPortsText != "22, 443, 2083" {
+		devices[0].OpenPortsText != "22, 443, 2083" || devices[0].GuessedType != "cPanel/WHM server" {
 		t.Fatalf("devices = %#v", devices)
 	}
 

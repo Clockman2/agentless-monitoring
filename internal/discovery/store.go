@@ -45,6 +45,7 @@ type Device struct {
 	DetectedPort  *uint16
 	OpenPorts     []uint16
 	OpenPortsText string
+	GuessedType   string
 	Status        string
 	MachineID     *int64
 	DiscoveredAt  string
@@ -248,6 +249,7 @@ func (s *Store) ListDevices(ctx context.Context, jobID int64) ([]Device, error) 
 		}
 		device.OpenPorts = parsePorts(openPorts)
 		device.OpenPortsText = formatPorts(device.OpenPorts)
+		device.GuessedType = guessMachineType(device.OpenPorts)
 		devices = append(devices, device)
 	}
 	if err := rows.Err(); err != nil {

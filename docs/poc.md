@@ -66,7 +66,7 @@ Open **Discovery** in the sidebar. The target may be:
 - An IPv4 CIDR from `/24` through `/32`, such as `203.0.113.0/24`.
 - An inclusive IPv4 range containing at most 256 addresses, such as `203.0.113.10-203.0.113.40`.
 
-Before starting each job, confirm that you own the target or have explicit authorization to scan it. Unspecified, multicast, IPv6, malformed, reversed, and oversized targets are rejected. Well-known cloud metadata, workload-credential, and platform service addresses are denied by default for discovery and monitoring. Set `AGENTLESS_MONITORING_ALLOW_SENSITIVE_TARGETS=true` only when an authorized deployment explicitly needs them. Only one discovery job runs at a time.
+Only scan targets that you own or have explicit authorization to assess. Unspecified, multicast, IPv6, malformed, reversed, and oversized targets are rejected. Well-known cloud metadata, workload-credential, and platform service addresses are denied by default for discovery and monitoring. Set `AGENTLESS_MONITORING_ALLOW_SENSITIVE_TARGETS=true` only when an authorized deployment explicitly needs them. Only one discovery job runs at a time.
 
 The job runs in the background. Its page refreshes while it checks common TCP services, including web, mail, DNS, SSH, database, remote-management, cPanel, WHM, and webmail ports. Every port that accepts a TCP connection is recorded. A refusal is not treated as a discovered device. This avoids raw-socket and root requirements, but a host that silently drops every probe or exposes none of the configured services will not appear. A successful TCP connection proves that the address accepted the connection; it does not prove that every responding address represents a distinct physical or virtual machine because firewalls, proxies, and NAT can answer for multiple addresses.
 
@@ -77,7 +77,7 @@ When the job completes:
 3. Enter a new or existing group name.
 4. Select **Add selected to group**.
 
-Discovery does not automatically monitor every response. The explicit review step prevents accidental inventory growth. During import, port 80 creates an HTTP check, port 443 creates an HTTPS check, and other detected ports create TCP checks. A reachable device with no open common port receives a TCP port 22 check as a conservative placeholder; it may remain critical until a suitable manual check is added.
+Discovery does not automatically monitor every response. The explicit review step prevents accidental inventory growth. During import, port 80 creates an HTTP check, port 443 creates an HTTPS check, and other detected ports create TCP checks.
 
 To deploy this feature on the Ubuntu POC after pulling the new commits, run:
 

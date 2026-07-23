@@ -31,6 +31,7 @@ func (s *Server) registerWebRoutes(mux *http.ServeMux) {
 		mux.HandleFunc("POST /discovery/jobs/{id}/import", s.discoveryImportSubmit)
 	}
 	mux.HandleFunc("GET /assets/app.css", s.stylesheet)
+	mux.HandleFunc("GET /assets/discovery.js", s.discoveryScript)
 }
 
 func (s *Server) discoveryPage(w http.ResponseWriter, r *http.Request) {
@@ -50,10 +51,6 @@ func (s *Server) discoveryStartSubmit(w http.ResponseWriter, r *http.Request) {
 	}
 	if !s.parseForm(w, r) || !tokensEqual(r.FormValue("csrf_token"), session.CSRFToken) {
 		http.Error(w, "invalid form token", http.StatusForbidden)
-		return
-	}
-	if r.FormValue("authorized") != "yes" {
-		s.renderDiscovery(w, r, session, http.StatusBadRequest, "Confirm that you are authorized to scan the target.")
 		return
 	}
 	job, err := s.discovery.Start(r.Context(), session.User.ID, r.FormValue("target"))
