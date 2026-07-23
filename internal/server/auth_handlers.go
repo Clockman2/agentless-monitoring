@@ -252,12 +252,14 @@ func (s *Server) loginSubmit(w http.ResponseWriter, r *http.Request) {
 	}
 	clearCookie(w, s.formCSRFCookieName(), s.secureCookies)
 
-	client := clientAddress(r)
-	if !s.loginLimiter.allow(client) {
+	client := s.clientAddress(r)
+	username := r.FormValue("username")
+	if !s.loginLimiter.allow(client, username) {
+		w.Header().Set("Retry-After", "60")
 		s.renderAuthPage(w, r, http.StatusTooManyRequests, "login", "Too many login attempts. Try again shortly.")
 		return
 	}
-	user, err := s.authStore.Authenticate(r.Context(), r.FormValue("username"), r.FormValue("password"))
+	user, err := s.authStore.Authenticate(r.Context(), username, r.FormValue("password"), client)
 	if errors.Is(err, auth.ErrInvalidCredentials) {
 		s.renderAuthPage(w, r, http.StatusUnauthorized, "login", "Invalid username or password.")
 		return
@@ -266,7 +268,7 @@ func (s *Server) loginSubmit(w http.ResponseWriter, r *http.Request) {
 		s.internalError(w, r, err)
 		return
 	}
-	s.loginLimiter.reset(client)
+	s.loginLimiter.reset(client, username)
 
 	token, session, err := s.authStore.CreateSession(r.Context(), user.ID, auth.SessionDuration)
 	if err != nil {

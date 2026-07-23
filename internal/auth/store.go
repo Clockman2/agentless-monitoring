@@ -15,6 +15,7 @@ import (
 const (
 	AdministratorRole                   = "administrator"
 	maximumConcurrentPasswordOperations = 2
+	maximumFailedLoginAuditEvents       = 10000
 )
 
 var (
@@ -111,7 +112,7 @@ func (s *Store) CreateAdministrator(ctx context.Context, username, password stri
 	if err != nil {
 		return User{}, fmt.Errorf("read administrator ID: %w", err)
 	}
-	if err := insertAuditEvent(ctx, tx, &userID, "user.created", "success", "user", strconv.FormatInt(userID, 10)); err != nil {
+	if err := insertAuditEvent(ctx, tx, &userID, "user.created", "success", "user", strconv.FormatInt(userID, 10), ""); err != nil {
 		return User{}, err
 	}
 	if err := tx.Commit(); err != nil {
@@ -122,7 +123,7 @@ func (s *Store) CreateAdministrator(ctx context.Context, username, password stri
 }
 
 // Authenticate verifies credentials and records the outcome in the audit log.
-func (s *Store) Authenticate(ctx context.Context, username, password string) (User, error) {
+func (s *Store) Authenticate(ctx context.Context, username, password, sourceIP string) (User, error) {
 	username = strings.TrimSpace(username)
 	if !usernamePattern.MatchString(username) || len(password) > maximumPasswordBytes {
 		if err := s.acquirePasswordSlot(ctx); err != nil {
@@ -130,7 +131,7 @@ func (s *Store) Authenticate(ctx context.Context, username, password string) (Us
 		}
 		burnPasswordAttempt(password, s.passwordParams)
 		s.releasePasswordSlot()
-		if err := s.recordLogin(ctx, nil, "failure"); err != nil {
+		if err := s.recordLogin(ctx, nil, sourceIP, "failure"); err != nil {
 			return User{}, err
 		}
 		return User{}, ErrInvalidCredentials
@@ -149,7 +150,7 @@ func (s *Store) Authenticate(ctx context.Context, username, password string) (Us
 		}
 		burnPasswordAttempt(password, s.passwordParams)
 		s.releasePasswordSlot()
-		if err := s.recordLogin(ctx, nil, "failure"); err != nil {
+		if err := s.recordLogin(ctx, nil, sourceIP, "failure"); err != nil {
 			return User{}, err
 		}
 		return User{}, ErrInvalidCredentials
@@ -167,12 +168,12 @@ func (s *Store) Authenticate(ctx context.Context, username, password string) (Us
 		return User{}, fmt.Errorf("verify stored password hash: %w", err)
 	}
 	if !valid {
-		if err := s.recordLogin(ctx, &user.ID, "failure"); err != nil {
+		if err := s.recordLogin(ctx, &user.ID, sourceIP, "failure"); err != nil {
 			return User{}, err
 		}
 		return User{}, ErrInvalidCredentials
 	}
-	if err := s.recordLogin(ctx, &user.ID, "success"); err != nil {
+	if err := s.recordLogin(ctx, &user.ID, sourceIP, "success"); err != nil {
 		return User{}, err
 	}
 	return user, nil
@@ -201,9 +202,29 @@ func (s *Store) userByID(ctx context.Context, userID int64) (User, error) {
 	return user, nil
 }
 
-func (s *Store) recordLogin(ctx context.Context, userID *int64, outcome string) error {
-	if err := insertAuditEvent(ctx, s.db, userID, "user.login", outcome, "", ""); err != nil {
+func (s *Store) recordLogin(ctx context.Context, userID *int64, sourceIP, outcome string) error {
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		return fmt.Errorf("begin login audit event: %w", err)
+	}
+	defer func() { _ = tx.Rollback() }()
+	if err := insertAuditEvent(ctx, tx, userID, "user.login", outcome, "", "", sourceIP); err != nil {
 		return err
+	}
+	if outcome == "failure" {
+		if _, err := tx.ExecContext(ctx, `
+			DELETE FROM audit_events
+			WHERE id IN (
+				SELECT id FROM audit_events
+				WHERE action = 'user.login' AND outcome = 'failure'
+				ORDER BY id DESC LIMIT -1 OFFSET ?
+			)
+		`, maximumFailedLoginAuditEvents); err != nil {
+			return fmt.Errorf("prune failed login audit events: %w", err)
+		}
+	}
+	if err := tx.Commit(); err != nil {
+		return fmt.Errorf("commit login audit event: %w", err)
 	}
 	return nil
 }
@@ -212,11 +233,11 @@ type queryExecer interface {
 	ExecContext(context.Context, string, ...any) (sql.Result, error)
 }
 
-func insertAuditEvent(ctx context.Context, db queryExecer, userID *int64, action, outcome, objectType, objectID string) error {
+func insertAuditEvent(ctx context.Context, db queryExecer, userID *int64, action, outcome, objectType, objectID, sourceIP string) error {
 	if _, err := db.ExecContext(ctx, `
-		INSERT INTO audit_events (actor_user_id, action, object_type, object_id, outcome)
-		VALUES (?, ?, NULLIF(?, ''), NULLIF(?, ''), ?)
-	`, userID, action, objectType, objectID, outcome); err != nil {
+		INSERT INTO audit_events (actor_user_id, action, object_type, object_id, outcome, source_ip)
+		VALUES (?, ?, NULLIF(?, ''), NULLIF(?, ''), ?, NULLIF(?, ''))
+	`, userID, action, objectType, objectID, outcome, sourceIP); err != nil {
 		return fmt.Errorf("record authentication audit event: %w", err)
 	}
 	return nil

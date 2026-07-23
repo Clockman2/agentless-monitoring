@@ -4,6 +4,7 @@ package config
 import (
 	"fmt"
 	"net"
+	"net/netip"
 	"os"
 	"strconv"
 	"strings"
@@ -15,6 +16,7 @@ const (
 	databasePathEnv          = "AGENTLESS_MONITORING_DATABASE_PATH"
 	secureCookiesEnv         = "AGENTLESS_MONITORING_SECURE_COOKIES"
 	allowWebSetupEnv         = "AGENTLESS_MONITORING_ALLOW_WEB_SETUP"
+	trustedProxiesEnv        = "AGENTLESS_MONITORING_TRUSTED_PROXIES"
 	shutdownTimeoutEnv       = "AGENTLESS_MONITORING_SHUTDOWN_TIMEOUT"
 	monitoringWorkersEnv     = "AGENTLESS_MONITORING_WORKERS"
 	schedulerPollIntervalEnv = "AGENTLESS_MONITORING_POLL_INTERVAL"
@@ -34,6 +36,7 @@ type Config struct {
 	DatabasePath          string
 	SecureCookies         bool
 	AllowWebSetup         bool
+	TrustedProxies        []netip.Prefix
 	ShutdownTimeout       time.Duration
 	MonitoringWorkers     int
 	SchedulerPollInterval time.Duration
@@ -103,6 +106,13 @@ func load(lookupEnv func(string) (string, bool)) (Config, error) {
 		}
 		cfg.AllowWebSetup = allowWebSetup
 	}
+	if value, ok := lookupEnv(trustedProxiesEnv); ok {
+		trustedProxies, err := parseTrustedProxies(value)
+		if err != nil {
+			return Config{}, fmt.Errorf("%s: %w", trustedProxiesEnv, err)
+		}
+		cfg.TrustedProxies = trustedProxies
+	}
 	if value, ok := lookupEnv(shutdownTimeoutEnv); ok {
 		duration, err := time.ParseDuration(value)
 		if err != nil {
@@ -129,6 +139,26 @@ func load(lookupEnv func(string) (string, bool)) (Config, error) {
 		return Config{}, err
 	}
 	return cfg, nil
+}
+
+func parseTrustedProxies(value string) ([]netip.Prefix, error) {
+	var prefixes []netip.Prefix
+	for _, raw := range strings.Split(value, ",") {
+		raw = strings.TrimSpace(raw)
+		if raw == "" {
+			continue
+		}
+		if address, err := netip.ParseAddr(raw); err == nil {
+			prefixes = append(prefixes, netip.PrefixFrom(address, address.BitLen()))
+			continue
+		}
+		prefix, err := netip.ParsePrefix(raw)
+		if err != nil {
+			return nil, fmt.Errorf("%q must be an IP address or CIDR", raw)
+		}
+		prefixes = append(prefixes, prefix.Masked())
+	}
+	return prefixes, nil
 }
 
 func validateListenAddress(address string) error {

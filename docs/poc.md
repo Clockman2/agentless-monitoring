@@ -94,3 +94,5 @@ The database migration and service restart are handled by the existing update wo
 - Discovery is IPv4-only, uses a fixed TCP probe set, and is limited to 256 addresses per job.
 - HTTPS validates certificates normally; self-signed or mismatched certificates fail the check.
 - Insecure cookies are accepted only with a loopback listener. Set `AGENTLESS_MONITORING_SECURE_COOKIES=true` when serving the application through HTTPS; this also enables browser-enforced `__Host-` cookie names.
+- Forwarded client addresses are ignored unless the immediate peer is listed in `AGENTLESS_MONITORING_TRUSTED_PROXIES`. Configure only proxies you control and have them append or replace `X-Forwarded-For`.
+- Login throttling uses independent bounded source-address and account buckets. Failed-login audit history is capped to prevent unbounded database growth.

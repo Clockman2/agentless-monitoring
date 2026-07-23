@@ -9,6 +9,8 @@ import (
 	"html/template"
 	"net"
 	"net/http"
+	"net/netip"
+	"strings"
 	"time"
 
 	"github.com/Clockman2/agentless-monitoring/internal/discovery"
@@ -179,12 +181,36 @@ func tokensEqual(first, second string) bool {
 	return subtle.ConstantTimeCompare([]byte(first), []byte(second)) == 1
 }
 
-func clientAddress(r *http.Request) string {
+func (s *Server) clientAddress(r *http.Request) string {
 	host, _, err := net.SplitHostPort(r.RemoteAddr)
 	if err != nil {
-		return r.RemoteAddr
+		host = r.RemoteAddr
 	}
-	return host
+	peer, err := netip.ParseAddr(host)
+	if err != nil || !s.isTrustedProxy(peer) {
+		return host
+	}
+
+	forwarded := strings.Split(r.Header.Get("X-Forwarded-For"), ",")
+	for index := len(forwarded) - 1; index >= 0; index-- {
+		address, err := netip.ParseAddr(strings.TrimSpace(forwarded[index]))
+		if err != nil {
+			return peer.String()
+		}
+		if !s.isTrustedProxy(address) {
+			return address.String()
+		}
+	}
+	return peer.String()
+}
+
+func (s *Server) isTrustedProxy(address netip.Addr) bool {
+	for _, prefix := range s.trustedProxies {
+		if prefix.Contains(address) {
+			return true
+		}
+	}
+	return false
 }
 
 func (s *Server) internalError(w http.ResponseWriter, r *http.Request, err error) {

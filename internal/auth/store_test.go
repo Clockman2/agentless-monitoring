@@ -39,7 +39,7 @@ func TestCreateAdministratorAndAuthenticate(t *testing.T) {
 		t.Fatal("database contains the plaintext password")
 	}
 
-	authenticated, err := store.Authenticate(ctx, "ADMIN.USER", "a secure test password")
+	authenticated, err := store.Authenticate(ctx, "ADMIN.USER", "a secure test password", "192.0.2.10")
 	if err != nil {
 		t.Fatalf("Authenticate() error = %v", err)
 	}
@@ -47,7 +47,7 @@ func TestCreateAdministratorAndAuthenticate(t *testing.T) {
 		t.Errorf("authenticated user ID = %d, want %d", authenticated.ID, created.ID)
 	}
 
-	if _, err := store.Authenticate(ctx, "admin.user", "wrong password"); !errors.Is(err, ErrInvalidCredentials) {
+	if _, err := store.Authenticate(ctx, "admin.user", "wrong password", "192.0.2.10"); !errors.Is(err, ErrInvalidCredentials) {
 		t.Fatalf("wrong password error = %v, want ErrInvalidCredentials", err)
 	}
 	if _, err := store.CreateAdministrator(ctx, "second.admin", "another secure password"); !errors.Is(err, ErrAlreadyInitialized) {
@@ -60,6 +60,16 @@ func TestCreateAdministratorAndAuthenticate(t *testing.T) {
 	}
 	if auditCount != 3 {
 		t.Errorf("audit event count = %d, want 3", auditCount)
+	}
+	var sourceIP string
+	if err := db.QueryRow(`
+		SELECT source_ip FROM audit_events
+		WHERE action = 'user.login' ORDER BY id DESC LIMIT 1
+	`).Scan(&sourceIP); err != nil {
+		t.Fatalf("read login source IP: %v", err)
+	}
+	if sourceIP != "192.0.2.10" {
+		t.Errorf("login source IP = %q, want 192.0.2.10", sourceIP)
 	}
 }
 

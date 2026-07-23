@@ -91,6 +91,7 @@ func main() {
 		Scheduler:      scheduler,
 		SecureCookies:  cfg.SecureCookies,
 		AllowWebSetup:  cfg.AllowWebSetup,
+		TrustedProxies: cfg.TrustedProxies,
 	})
 	go scheduler.Run(ctx)
 

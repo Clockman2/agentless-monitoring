@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"log/slog"
 	"net/http"
+	"net/netip"
 	"time"
 
 	"github.com/Clockman2/agentless-monitoring/internal/auth"
@@ -26,6 +27,7 @@ type Server struct {
 	authStore      *auth.Store
 	secureCookies  bool
 	allowWebSetup  bool
+	trustedProxies []netip.Prefix
 	version        string
 	logger         *slog.Logger
 	loginLimiter   *loginLimiter
@@ -49,6 +51,7 @@ type Options struct {
 	Scheduler      *monitoring.Scheduler
 	SecureCookies  bool
 	AllowWebSetup  bool
+	TrustedProxies []netip.Prefix
 }
 
 // New creates a server with conservative timeouts and the application's routes.
@@ -57,6 +60,7 @@ func New(options Options) *Server {
 		authStore:      options.AuthStore,
 		secureCookies:  options.SecureCookies,
 		allowWebSetup:  options.AllowWebSetup,
+		trustedProxies: append([]netip.Prefix(nil), options.TrustedProxies...),
 		version:        options.Version,
 		logger:         options.Logger,
 		loginLimiter:   newLoginLimiter(),

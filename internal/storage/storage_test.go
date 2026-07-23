@@ -40,8 +40,8 @@ func TestOpenCreatesSecureMigratedDatabase(t *testing.T) {
 	if err := db.QueryRow("SELECT COUNT(*) FROM schema_migrations").Scan(&migrationCount); err != nil {
 		t.Fatalf("count migrations: %v", err)
 	}
-	if migrationCount != 5 {
-		t.Errorf("migration count = %d, want 5", migrationCount)
+	if migrationCount != 6 {
+		t.Errorf("migration count = %d, want 6", migrationCount)
 	}
 
 	var foreignKeys int
@@ -81,8 +81,8 @@ func TestOpenAppliesMigrationsOnce(t *testing.T) {
 	if err := db.QueryRow("SELECT COUNT(*) FROM schema_migrations").Scan(&count); err != nil {
 		t.Fatalf("count migrations: %v", err)
 	}
-	if count != 5 {
-		t.Errorf("migration count = %d, want 5", count)
+	if count != 6 {
+		t.Errorf("migration count = %d, want 6", count)
 	}
 }
 

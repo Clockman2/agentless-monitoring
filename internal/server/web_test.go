@@ -7,6 +7,7 @@ import (
 	"log/slog"
 	"net/http"
 	"net/http/httptest"
+	"net/netip"
 	"net/url"
 	"path/filepath"
 	"strconv"
@@ -161,6 +162,24 @@ func TestWebSetupDisabledByDefault(t *testing.T) {
 	response = serveRequest(app, http.MethodGet, "/", nil)
 	if response.Code != http.StatusServiceUnavailable {
 		t.Fatalf("root status = %d, want 503", response.Code)
+	}
+}
+
+func TestClientAddressUsesOnlyTrustedForwardingChain(t *testing.T) {
+	app, _ := newWebTestServer(t, false)
+	request := httptest.NewRequest(http.MethodGet, "/", nil)
+	request.RemoteAddr = "127.0.0.1:4321"
+	request.Header.Set("X-Forwarded-For", "198.51.100.10, 10.0.0.5")
+
+	if got := app.clientAddress(request); got != "127.0.0.1" {
+		t.Fatalf("untrusted forwarding address = %q, want peer address", got)
+	}
+	app.trustedProxies = []netip.Prefix{
+		netip.MustParsePrefix("127.0.0.1/32"),
+		netip.MustParsePrefix("10.0.0.0/8"),
+	}
+	if got := app.clientAddress(request); got != "198.51.100.10" {
+		t.Fatalf("trusted forwarding address = %q, want client address", got)
 	}
 }
 
